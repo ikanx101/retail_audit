@@ -1,0 +1,172 @@
+// Retail Audit Sachet — Prisma schema
+// Lihat requirement.md bagian 6 (Model Data) untuk spesifikasi lengkap.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  MASTER_RESEARCHER
+  INTERVIEWER
+}
+
+enum GeolocationSource {
+  GPS
+  MANUAL
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  phone        String?
+  role         Role
+  region       String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdById  String?  @map("created_by")
+  createdBy    User?    @relation("UserCreatedBy", fields: [createdById], references: [id])
+  createdUsers User[]   @relation("UserCreatedBy")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  lastLoginAt  DateTime? @map("last_login_at")
+
+  outlets       Outlet[]      @relation("OutletCreatedBy")
+  visits        Visit[]       @relation("VisitInterviewer")
+  brandsCreated Brand[]       @relation("BrandCreatedBy")
+  auditActions  AuditTrail[]  @relation("AuditActor")
+
+  @@map("users")
+}
+
+model AuthLog {
+  id        String   @id @default(uuid())
+  username  String
+  success   Boolean
+  ip        String?
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([username])
+  @@map("auth_log")
+}
+
+model Brand {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  variant     String?
+  category    String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdById String?  @map("created_by")
+  createdBy   User?    @relation("BrandCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  visitSales VisitSale[]
+
+  @@map("brands")
+}
+
+model Outlet {
+  id                String            @id @default(uuid())
+  name              String
+  ownerName         String            @map("owner_name")
+  address           String
+  phone             String
+  latitude          Decimal           @db.Decimal(9, 6)
+  longitude         Decimal           @db.Decimal(9, 6)
+  accuracyM         Decimal?          @map("accuracy_m") @db.Decimal(10, 2)
+  geolocationSource GeolocationSource @default(GPS) @map("geolocation_source")
+  city              String?
+  district          String?
+  notes             String?
+  createdById       String            @map("created_by")
+  createdBy         User              @relation("OutletCreatedBy", fields: [createdById], references: [id])
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  isDeleted         Boolean           @default(false) @map("is_deleted")
+
+  visits Visit[]
+
+  @@index([createdById])
+  @@map("outlets")
+}
+
+model Visit {
+  id               String   @id @default(uuid())
+  clientUuid       String   @unique @map("client_uuid")
+  outletId         String   @map("outlet_id")
+  outlet           Outlet   @relation(fields: [outletId], references: [id])
+  interviewerId    String   @map("interviewer_id")
+  interviewer      User     @relation("VisitInterviewer", fields: [interviewerId], references: [id])
+  visitNumber      Int      @map("visit_number")
+  visitDate        DateTime @map("visit_date") @db.Date
+  visitTime        String   @map("visit_time") // HH:mm WIB
+  weatherClearH    Int      @default(0) @map("weather_clear_h")
+  weatherCloudyH   Int      @default(0) @map("weather_cloudy_h")
+  weatherDrizzleH  Int      @default(0) @map("weather_drizzle_h")
+  weatherRainH     Int      @default(0) @map("weather_rain_h")
+  latitude         Decimal? @map("latitude") @db.Decimal(9, 6)
+  longitude        Decimal? @map("longitude") @db.Decimal(9, 6)
+  accuracyM        Decimal? @map("accuracy_m") @db.Decimal(10, 2)
+  notes            String?
+  isOfflineCreated Boolean  @default(false) @map("is_offline_created")
+  syncedAt         DateTime? @map("synced_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  isDeleted        Boolean  @default(false) @map("is_deleted")
+
+  sales VisitSale[]
+
+  @@unique([outletId, visitDate])
+  @@index([outletId, visitDate])
+  @@index([interviewerId])
+  @@map("visits")
+}
+
+model VisitSale {
+  id                String   @id @default(uuid())
+  visitId           String   @map("visit_id")
+  visit             Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  brandId           String?  @map("brand_id")
+  brand             Brand?   @relation(fields: [brandId], references: [id])
+  brandNameSnapshot String   @map("brand_name_snapshot")
+  sachetsSold       Int      @map("sachets_sold")
+  variantNote       String?  @map("variant_note")
+  isNewBrand        Boolean  @default(false) @map("is_new_brand")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@unique([visitId, brandNameSnapshot])
+  @@index([visitId])
+  @@index([brandId])
+  @@map("visit_sales")
+}
+
+model VisitPhoto {
+  id         String   @id @default(uuid())
+  visitId    String   @map("visit_id")
+  path       String
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  @@map("visit_photos")
+}
+
+model AuditTrail {
+  id         String   @id @default(uuid())
+  entity     String
+  entityId   String   @map("entity_id")
+  action     String
+  actorId    String?  @map("actor_id")
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+  beforeJson Json?    @map("before_json")
+  afterJson  Json?    @map("after_json")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entity, entityId])
+  @@map("audit_trail")
+}
