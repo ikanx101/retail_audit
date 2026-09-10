@@ -17,6 +17,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
+    "reset-master-password": "tsx prisma/reset-master-password.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

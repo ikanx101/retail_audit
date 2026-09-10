@@ -75,6 +75,13 @@ beberapa perbaikan stabilisasi pada hari yang sama:
   disertai log peringatan, sehingga satu env var yang salah ketik tidak lagi menjatuhkan seluruh
   aplikasi. **Env var tetap harus diisi dengan skema penuh** (`https://domain-anda`) — perbaikan
   ini hanya jaring pengaman, bukan pengganti konfigurasi yang benar.
+- **Tambahan `npm run reset-master-password`** — `prisma/seed.ts` hanya membuat akun master bila
+  belum ada, sehingga bila skrip seed sempat dijalankan sekali dengan `SEED_MASTER_PASSWORD` yang
+  belum final (mis. masih memakai fallback `ChangeMe123!`), menjalankannya lagi setelah env var
+  diperbaiki **tidak** memperbarui password yang tersimpan — inilah yang menyebabkan login gagal
+  padahal env var sudah terlihat benar. Skrip baru `prisma/reset-master-password.ts` selalu
+  menimpa password akun master ke nilai `SEED_MASTER_PASSWORD` saat ini (dan mengaktifkan kembali
+  akun bila nonaktif), untuk kasus ini maupun lupa password di kemudian hari.
 
 ---
 
@@ -170,7 +177,8 @@ Buka [http://localhost:3000](http://localhost:3000). Anda akan diarahkan ke `/lo
 | `npm run prisma:migrate` | Migrasi baru saat pengembangan (`prisma migrate dev`) |
 | `npm run prisma:deploy` | Terapkan migrasi (dipakai saat deploy) |
 | `npm run prisma:studio` | Buka Prisma Studio (GUI database) |
-| `npm run seed` | Jalankan seed akun master + master merek |
+| `npm run seed` | Jalankan seed akun master + master merek (hanya membuat, tidak menimpa akun yang sudah ada) |
+| `npm run reset-master-password` | Paksa reset password akun master ke `SEED_MASTER_PASSWORD` saat ini (juga mengaktifkan akun) |
 
 ---
 
@@ -294,6 +302,17 @@ Satu project Railway berisi:
 
    Ini membuat satu akun `MASTER_RESEARCHER` menggunakan `SEED_MASTER_USERNAME` /
    `SEED_MASTER_PASSWORD` yang sudah diatur di langkah 4.
+
+   > **Penting:** `npm run seed` hanya membuat akun bila **belum ada** akun dengan username
+   > tersebut — bila sudah pernah dijalankan sebelumnya (mis. sebelum `SEED_MASTER_PASSWORD`
+   > final diatur), menjalankannya lagi **tidak** akan memperbarui password. Tidak bisa login
+   > padahal `SEED_MASTER_USERNAME`/`SEED_MASTER_PASSWORD` sudah benar? Jalankan ini untuk
+   > memaksa reset password akun master ke nilai env var saat ini (juga mengaktifkan kembali
+   > akun bila tidak sengaja nonaktif):
+   >
+   > ```bash
+   > npm run reset-master-password
+   > ```
 
 8. **Login** ke URL produksi dengan akun master tersebut, lalu mulai buat akun interviewer dari
    menu **Kelola Interviewer**.
