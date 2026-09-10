@@ -82,6 +82,18 @@ beberapa perbaikan stabilisasi pada hari yang sama:
   padahal env var sudah terlihat benar. Skrip baru `prisma/reset-master-password.ts` selalu
   menimpa password akun master ke nilai `SEED_MASTER_PASSWORD` saat ini (dan mengaktifkan kembali
   akun bila nonaktif), untuk kasus ini maupun lupa password di kemudian hari.
+- **Fitur: Master dapat mengedit & menghapus data interviewer** — sebelumnya Master hanya bisa
+  melihat data hasil kunjungan tanpa bisa mengoreksinya. Ditambahkan:
+  - `PATCH /api/outlets/[id]` + tombol **"Edit Info Warung"** di `/master/warungs/[id]` — Master
+    mengoreksi data warung (nama, pemilik, alamat, telepon, kota/kecamatan, catatan, koordinat).
+  - `GET/PATCH/DELETE /api/master/visits/[id]` + halaman `/master/kunjungan/[id]` — Master
+    mengoreksi tanggal/jam kunjungan, cuaca, dan penjualan per merek pada satu baris kunjungan,
+    atau menghapusnya (**soft delete** via `is_deleted`, konsisten dengan desain penyimpanan di
+    bagian 6 requirement — data tidak pernah dihapus permanen, hanya disembunyikan dari
+    dashboard/grafik/tabel/export). Tombol Edit/Hapus tersedia di tabel `/master/kunjungan` dan
+    di riwayat kunjungan pada halaman detail warung.
+  - Kedua endpoint dibatasi role `MASTER_RESEARCHER` dan mencatat setiap perubahan ke
+    `audit_trail` (nilai sebelum/sesudah, aktor, waktu) sesuai NFR-09.
 
 ---
 
@@ -199,8 +211,15 @@ Buka [http://localhost:3000](http://localhost:3000). Anda akan diarahkan ke `/lo
    interviewer, merek, atau nama warung di bagian atas untuk mempersempit data — filter ini
    berlaku juga di halaman Kunjungan, Kualitas Data, dan Export.
 5. **Warung** (`/master/warungs`) — daftar & peta sebaran warung. Klik warung untuk melihat
-   riwayat kunjungan dan tren penjualan per merek (drill-down).
-6. **Kunjungan** (`/master/kunjungan`) — tabel seluruh kunjungan dengan pagination.
+   riwayat kunjungan dan tren penjualan per merek (drill-down). Tombol **"Edit Info Warung"** di
+   halaman detail memungkinkan Master mengoreksi data warung yang diinput interviewer (nama,
+   pemilik, alamat, telepon, kota/kecamatan, catatan, koordinat).
+6. **Kunjungan** (`/master/kunjungan`) — tabel seluruh kunjungan dengan pagination. Setiap baris
+   punya tombol **Edit** (mengoreksi tanggal/jam kunjungan, cuaca, dan penjualan per merek yang
+   diinput interviewer) dan **Hapus** (soft delete — kunjungan disembunyikan dari dashboard,
+   grafik, tabel, dan export, tapi tetap tersimpan di database untuk jejak audit, sesuai NFR-09).
+   Aksi yang sama juga tersedia di riwayat kunjungan pada halaman detail warung. Setiap
+   edit/hapus oleh Master tercatat di `audit_trail` (siapa, kapan, nilai sebelum/sesudah).
 7. **Kualitas Data** (`/master/kualitas-data`) — daftar kunjungan dengan anomali: total jam
    cuaca ≠ 24, penjualan 0 sachet di semua merek, akurasi GPS buruk, merek duplikat, nomor
    telepon tidak valid, atau total penjualan > 500 sachet dalam satu kunjungan (kemungkinan
@@ -448,8 +467,9 @@ Yang **belum/parsial** diimplementasikan (jujur disampaikan agar tidak jadi asum
   stream) atau raw SQL aggregation untuk endpoint dashboard.
 - **Foto warung/label merek, multi-studi, notifikasi WhatsApp/Telegram** — eksplisit Fase 4
   (opsional) pada requirement, belum dibuat.
-- **Audit trail** tersedia di skema (`audit_trail`) dan dicatat untuk aksi kelola interviewer
-  serta merek, namun belum ada halaman UI untuk menelusurinya.
+- **Audit trail** tersedia di skema (`audit_trail`) dan dicatat untuk aksi kelola interviewer,
+  merek, serta edit/hapus warung & kunjungan oleh Master, namun belum ada halaman UI untuk
+  menelusurinya (perlu query manual lewat Prisma Studio/database bila diperlukan).
 - Ikon PWA (`public/icons/`) adalah placeholder sederhana — ganti dengan aset brand resmi bila
   tersedia sebelum dipublikasikan ke pengguna akhir.
 

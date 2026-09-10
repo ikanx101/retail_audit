@@ -105,6 +105,33 @@ export const createInterviewerSchema = z.object({
   region: z.string().trim().optional().nullable(),
 });
 
+// FR-27 / kelola kualitas data: Master mengoreksi data warung yang diinput interviewer.
+export const masterEditOutletSchema = z.object({
+  name: z.string().trim().min(2, "Nama warung wajib diisi"),
+  ownerName: z.string().trim().min(2, "Nama pemilik wajib diisi"),
+  address: z.string().trim().min(5, "Alamat wajib diisi"),
+  phone: phoneSchema,
+  city: z.string().trim().optional().nullable(),
+  district: z.string().trim().optional().nullable(),
+  notes: z.string().trim().optional().nullable(),
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+});
+
+export type MasterEditOutletInput = z.infer<typeof masterEditOutletSchema>;
+
+// Master mengoreksi/menghapus baris kunjungan yang diinput interviewer.
+export const masterEditVisitSchema = z
+  .object({
+    visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+    visitTime: visitTimeSchema,
+    notes: z.string().trim().optional().nullable(),
+    sales: salesArraySchema,
+  })
+  .and(weatherSchema);
+
+export type MasterEditVisitInput = z.infer<typeof masterEditVisitSchema>;
+
 export const brandSchema = z.object({
   name: z.string().trim().min(1, "Nama merek wajib diisi"),
   variant: z.string().trim().optional().nullable(),

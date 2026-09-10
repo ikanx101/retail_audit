@@ -1,11 +1,14 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
 import { formatDateWIB } from "@/lib/timezone";
 
 interface VisitRow {
@@ -32,6 +35,10 @@ export default function MasterKunjunganPage() {
 function MasterKunjunganContent() {
   const searchParams = useSearchParams();
   const [page, setPage] = React.useState(1);
+  const [deleteTarget, setDeleteTarget] = React.useState<{ id: string; outletName: string } | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const queryString = searchParams.toString();
 
@@ -51,6 +58,24 @@ function MasterKunjunganContent() {
     setPage(1);
   }, [queryString]);
 
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/master/visits/${deleteTarget.id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast({ title: "Kunjungan dihapus", kind: "success" });
+        queryClient.invalidateQueries({ queryKey: ["master-visits"] });
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast({ title: "Gagal menghapus", description: body?.error, kind: "error" });
+      }
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  }
+
   return (
     <div>
       <h1 className="mb-4 text-xl font-bold text-slate-900">Tabel Kunjungan</h1>
@@ -60,7 +85,7 @@ function MasterKunjunganContent() {
 
       {data && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="w-full min-w-[1000px] text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-3 py-2">Interviewer</th>
@@ -71,6 +96,7 @@ function MasterKunjunganContent() {
                 <th className="px-3 py-2">Cuaca (jam)</th>
                 <th className="px-3 py-2">Merek & Sachet</th>
                 <th className="px-3 py-2">Sumber</th>
+                <th className="px-3 py-2">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -100,6 +126,22 @@ function MasterKunjunganContent() {
                       {v.isOfflineCreated ? "Offline" : "Online"}
                     </Badge>
                   </td>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-2">
+                      <Link href={`/master/kunjungan/${v.id}`}>
+                        <Button size="sm" variant="outline">
+                          Edit
+                        </Button>
+                      </Link>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => setDeleteTarget({ id: v.id, outletName: v.outlet.name })}
+                      >
+                        Hapus
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -125,6 +167,20 @@ function MasterKunjunganContent() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget != null}
+        title="Hapus kunjungan ini?"
+        description={
+          deleteTarget
+            ? `Kunjungan untuk "${deleteTarget.outletName}" akan disembunyikan dari dashboard, grafik, dan export (soft delete — tetap tersimpan untuk audit).`
+            : ""
+        }
+        confirmLabel={deleting ? "Menghapus..." : "Ya, hapus"}
+        danger
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
