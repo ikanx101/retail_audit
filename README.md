@@ -65,6 +65,16 @@ beberapa perbaikan stabilisasi pada hari yang sama:
   — keduanya adalah mekanisme terpisah (lihat [Deployment ke Railway](#deployment-ke-railway)).
 - **Versi "1.0" ditambahkan sebagai footnote** di setiap halaman webapp (`src/components/app-footer.tsx`)
   dan pada respons `/api/health`, bersumber dari satu konstanta di `src/lib/version.ts`.
+- **Perbaikan crash total akibat `NEXTAUTH_URL` tanpa skema** — pada deploy pertama di Railway,
+  seluruh aplikasi (termasuk `/api/health` sendiri) mengembalikan 500 karena `NEXTAUTH_URL`/
+  `APP_BASE_URL` diisi tanpa `https://` (mis. disalin langsung dari domain Railway apa adanya:
+  `retailaudit-production.up.railway.app`). Auth.js memanggil `new URL(...)` dengan nilai itu di
+  middleware pada **setiap** request, dan tanpa skema itu melempar `TypeError: Invalid URL` —
+  sebelum kode kita sendiri sempat berjalan. Ditambahkan normalisasi defensif di `src/auth.ts`
+  yang otomatis menambahkan `https://` bila `AUTH_URL`/`NEXTAUTH_URL` tidak berawalan `http(s)://`,
+  disertai log peringatan, sehingga satu env var yang salah ketik tidak lagi menjatuhkan seluruh
+  aplikasi. **Env var tetap harus diisi dengan skema penuh** (`https://domain-anda`) — perbaikan
+  ini hanya jaring pengaman, bukan pengganti konfigurasi yang benar.
 
 ---
 

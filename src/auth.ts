@@ -5,6 +5,22 @@ import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
 
+/**
+ * Perlindungan terhadap kesalahan konfigurasi umum: env var URL (AUTH_URL/NEXTAUTH_URL)
+ * yang diisi tanpa skema (mis. hanya "app.up.railway.app", disalin langsung dari domain
+ * Railway tanpa "https://"). Auth.js memanggil `new URL(...)` dengan nilai ini secara
+ * internal — tanpa skema, itu melempar `TypeError: Invalid URL` di middleware pada SETIAP
+ * request, membuat seluruh aplikasi (termasuk /api/health) selalu 500. Normalisasi di sini
+ * mencegah satu env var yang salah ketik menjatuhkan seluruh aplikasi.
+ */
+for (const key of ["AUTH_URL", "NEXTAUTH_URL"]) {
+  const value = process.env[key];
+  if (value && !/^https?:\/\//i.test(value)) {
+    logger.warn({ key, value }, `${key} tidak berawalan http(s):// — menambahkan https:// secara otomatis`);
+    process.env[key] = `https://${value}`;
+  }
+}
+
 async function recordAuthLog(username: string, success: boolean, ip?: string | null, userAgent?: string | null) {
   try {
     await prisma.authLog.create({
