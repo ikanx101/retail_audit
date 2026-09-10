@@ -29,6 +29,8 @@ interface ScalarFields {
   phone: string;
   city: string;
   district: string;
+  openingTime: string;
+  closingTime: string;
   outletNotes: string;
   visitDate: string;
   visitTime: string;
@@ -68,6 +70,8 @@ export default function WarungBaruPage() {
       phone: "",
       city: "",
       district: "",
+      openingTime: "",
+      closingTime: "",
       outletNotes: "",
       visitDate: todayWIB(),
       visitTime: nowTimeWIB(),
@@ -104,6 +108,8 @@ export default function WarungBaruPage() {
         phone: (d.phone as string) ?? "",
         city: (d.city as string) ?? "",
         district: (d.district as string) ?? "",
+        openingTime: (d.openingTime as string) ?? "",
+        closingTime: (d.closingTime as string) ?? "",
         outletNotes: (d.outletNotes as string) ?? "",
         visitDate: (d.visitDate as string) ?? todayWIB(),
         visitTime: (d.visitTime as string) ?? nowTimeWIB(),
@@ -138,6 +144,8 @@ export default function WarungBaruPage() {
       phone: scalars.phone,
       city: scalars.city || null,
       district: scalars.district || null,
+      openingTime: scalars.openingTime,
+      closingTime: scalars.closingTime,
       outletNotes: scalars.outletNotes || null,
       visitDate: scalars.visitDate,
       visitTime: scalars.visitTime,
@@ -283,6 +291,16 @@ export default function WarungBaruPage() {
               <div>
                 <Label htmlFor="district">Kecamatan (opsional)</Label>
                 <Input id="district" {...register("district")} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="openingTime">Jam buka warung *</Label>
+                <Input id="openingTime" type="time" {...register("openingTime", { required: true })} />
+              </div>
+              <div>
+                <Label htmlFor="closingTime">Jam tutup warung *</Label>
+                <Input id="closingTime" type="time" {...register("closingTime", { required: true })} />
               </div>
             </div>
             <div>

@@ -1,8 +1,8 @@
 # Retail Audit Sachet
 
-**Versi saat ini: 1.0** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
+**Versi saat ini: 1.5** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
 dan di respons `GET /api/health` (`version`). Lihat [Riwayat Revisi](#riwayat-revisi) untuk
-catatan lengkap setiap perubahan sejak versi ini dirilis.
+catatan lengkap setiap perubahan sejak versi 1.0 dirilis.
 
 Webapps untuk pelaksanaan studi **market research (retail audit)** pada warung kopi dan toko
 kelontong yang menjual minuman sachet. Dipakai oleh dua peran:
@@ -33,6 +33,29 @@ penggunaan dan panduan deployment.
 
 Semua perubahan pada aplikasi ini dicatat di sini secara kronologis (terbaru di atas). Nomor
 versi mengikuti versi yang tampil di footer webapp dan `/api/health`.
+
+### v1.5 — 10 September 2026
+
+Perubahan aturan bisnis dan penambahan data warung, atas permintaan pemilik produk:
+
+- **Jam cuaca tidak lagi wajib berjumlah 24 jam.** Sebelumnya total empat kondisi cuaca (cerah/
+  mendung/gerimis/hujan) dibatasi maksimal 24 jam (error bila lebih) dan ditandai "belum lengkap"
+  bila kurang dari 24 jam (VL-01 pada `requirement.md`). Aturan ini dilonggarkan sepenuhnya:
+  interviewer bebas mengisi sesuai kondisi yang benar-benar teramati, tanpa keharusan totalnya
+  mencapai 24 jam. Batas per-kondisi (0–24 jam masing-masing, karena satu kondisi tidak mungkin
+  melebihi 24 jam dalam sehari) tetap berlaku, di aplikasi maupun sebagai *check constraint* di
+  database. Panel Kualitas Data (`/master/kualitas-data`) juga disesuaikan — hanya menandai bila
+  total jam cuaca **melebihi** 24 jam (tetap mustahil secara fisik), bukan lagi setiap kali
+  totalnya bukan tepat 24.
+- **Field baru: Jam Buka & Jam Tutup Warung.** Ditambahkan ke form **Warung Baru** (kunjungan
+  pertama) sebagai input wajib, disimpan di level warung (`outlets.opening_time`,
+  `outlets.closing_time` — bukan per-kunjungan, karena sifatnya data umum warung). Ditampilkan di
+  halaman detail warung (interviewer & master) dan dapat dikoreksi Master lewat "Edit Info
+  Warung". Turut ditambahkan sebagai kolom `jam_buka`/`jam_tutup` pada export long & wide format.
+  Kolom database bersifat nullable agar data warung yang sudah ada sebelum v1.5 tidak perlu diisi
+  ulang secara paksa.
+
+---
 
 ### v1.0 — 10 September 2026
 
@@ -213,7 +236,7 @@ Buka [http://localhost:3000](http://localhost:3000). Anda akan diarahkan ke `/lo
 5. **Warung** (`/master/warungs`) — daftar & peta sebaran warung. Klik warung untuk melihat
    riwayat kunjungan dan tren penjualan per merek (drill-down). Tombol **"Edit Info Warung"** di
    halaman detail memungkinkan Master mengoreksi data warung yang diinput interviewer (nama,
-   pemilik, alamat, telepon, kota/kecamatan, catatan, koordinat).
+   pemilik, alamat, telepon, kota/kecamatan, jam buka/tutup warung, catatan, koordinat).
 6. **Kunjungan** (`/master/kunjungan`) — tabel seluruh kunjungan dengan pagination. Setiap baris
    punya tombol **Edit** (mengoreksi tanggal/jam kunjungan, cuaca, dan penjualan per merek yang
    diinput interviewer) dan **Hapus** (soft delete — kunjungan disembunyikan dari dashboard,
@@ -236,10 +259,11 @@ Buka [http://localhost:3000](http://localhost:3000). Anda akan diarahkan ke `/lo
 ### Sebagai Interviewer
 
 1. **Login** dengan akun yang diberikan Master Researcher.
-2. **Warung Baru** (kunjungan pertama) — isi data warung (nama, pemilik, alamat, telepon),
-   ambil lokasi GPS dengan tombol "📍 Ambil Lokasi" (atau geser pin di peta / ketuk lokasi baru
-   untuk koreksi manual), isi tanggal & jam kunjungan, kondisi cuaca dalam jam, dan daftar merek
-   + jumlah sachet **terjual hari itu saja**. Minimal satu merek wajib diisi.
+2. **Warung Baru** (kunjungan pertama) — isi data warung (nama, pemilik, alamat, telepon, **jam
+   buka & jam tutup warung**), ambil lokasi GPS dengan tombol "📍 Ambil Lokasi" (atau geser pin di
+   peta / ketuk lokasi baru untuk koreksi manual), isi tanggal & jam kunjungan, kondisi cuaca
+   dalam jam (isi sesuai yang benar-benar teramati — **tidak wajib berjumlah 24 jam**), dan
+   daftar merek + jumlah sachet **terjual hari itu saja**. Minimal satu merek wajib diisi.
 3. **Kunjungan Ulang** — pilih warung dari daftar warung yang pernah Anda input (bisa dicari).
    Merek dari kunjungan sebelumnya otomatis dimuat — konfirmasi ulang angkanya (boleh 0 bila
    tidak ada penjualan hari itu). Anda bisa menambah merek baru bila ada. Centang "Perbarui

@@ -28,16 +28,6 @@ export function totalWeatherHours(w: WeatherHours): number {
   return w.clear + w.cloudy + w.drizzle + w.rain;
 }
 
-/** VL-01: total jam cuaca > 24 = error. */
-export function isWeatherOverflow(w: WeatherHours): boolean {
-  return totalWeatherHours(w) > 24;
-}
-
-/** VL-01: total jam cuaca < 24 = "belum lengkap" (boleh disimpan, hanya flag). */
-export function isWeatherIncomplete(w: WeatherHours): boolean {
-  return totalWeatherHours(w) < 24;
-}
-
 /** VL-02: sachets_sold > 5000 per merek memicu konfirmasi "angka tidak wajar". */
 export function isSachetsUnusual(sachets: number): boolean {
   return sachets > 5000;

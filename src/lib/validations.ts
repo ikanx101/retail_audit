@@ -1,24 +1,17 @@
 import { z } from "zod";
 import { isValidIndonesianPhone } from "./phone";
-import { isWeatherOverflow, hasDuplicateBrands, normalizeBrandName } from "./business-rules";
+import { hasDuplicateBrands, normalizeBrandName } from "./business-rules";
 
-export const weatherSchema = z
-  .object({
-    weatherClearH: z.coerce.number().int().min(0).max(24),
-    weatherCloudyH: z.coerce.number().int().min(0).max(24),
-    weatherDrizzleH: z.coerce.number().int().min(0).max(24),
-    weatherRainH: z.coerce.number().int().min(0).max(24),
-  })
-  .refine(
-    (w) =>
-      !isWeatherOverflow({
-        clear: w.weatherClearH,
-        cloudy: w.weatherCloudyH,
-        drizzle: w.weatherDrizzleH,
-        rain: w.weatherRainH,
-      }),
-    { message: "Total jam cuaca tidak boleh lebih dari 24 jam.", path: ["weatherClearH"] }
-  );
+// Sejak v1.5: total jam cuaca TIDAK wajib berjumlah/dibatasi 24 jam — interviewer bebas
+// mengisi kondisi cuaca yang benar-benar teramati tanpa harus menutupi seluruh hari. Batas
+// per-kondisi (0–24 jam masing-masing) tetap berlaku karena satu kondisi tidak mungkin lebih
+// dari 24 jam dalam sehari.
+export const weatherSchema = z.object({
+  weatherClearH: z.coerce.number().int().min(0).max(24),
+  weatherCloudyH: z.coerce.number().int().min(0).max(24),
+  weatherDrizzleH: z.coerce.number().int().min(0).max(24),
+  weatherRainH: z.coerce.number().int().min(0).max(24),
+});
 
 export const saleRowSchema = z.object({
   brandId: z.string().uuid().nullable().optional(),
@@ -61,6 +54,8 @@ export const newOutletVisitSchema = z
     phone: phoneSchema,
     city: z.string().trim().optional().nullable(),
     district: z.string().trim().optional().nullable(),
+    openingTime: visitTimeSchema,
+    closingTime: visitTimeSchema,
     outletNotes: z.string().trim().optional().nullable(),
     // Visit
     visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
@@ -113,6 +108,8 @@ export const masterEditOutletSchema = z.object({
   phone: phoneSchema,
   city: z.string().trim().optional().nullable(),
   district: z.string().trim().optional().nullable(),
+  openingTime: visitTimeSchema.optional().nullable(),
+  closingTime: visitTimeSchema.optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   latitude: z.coerce.number().min(-90).max(90),
   longitude: z.coerce.number().min(-180).max(180),

@@ -49,6 +49,8 @@ interface OutletDetail {
   phone: string;
   city: string | null;
   district: string | null;
+  openingTime: string | null;
+  closingTime: string | null;
   notes: string | null;
   latitude: string;
   longitude: string;
@@ -70,6 +72,8 @@ export default function MasterWarungDetailPage() {
     phone: "",
     city: "",
     district: "",
+    openingTime: "",
+    closingTime: "",
     notes: "",
   });
   const [lat, setLat] = React.useState(0);
@@ -98,6 +102,8 @@ export default function MasterWarungDetailPage() {
         phone: data.phone,
         city: data.city ?? "",
         district: data.district ?? "",
+        openingTime: data.openingTime ?? "",
+        closingTime: data.closingTime ?? "",
         notes: data.notes ?? "",
       });
       setLat(Number(data.latitude));
@@ -131,7 +137,13 @@ export default function MasterWarungDetailPage() {
 
   async function handleSaveOutlet(e: React.FormEvent) {
     e.preventDefault();
-    const payload = { ...form, latitude: lat, longitude: lng };
+    const payload = {
+      ...form,
+      openingTime: form.openingTime || null,
+      closingTime: form.closingTime || null,
+      latitude: lat,
+      longitude: lng,
+    };
     const parsed = masterEditOutletSchema.safeParse(payload);
     if (!parsed.success) {
       toast({ title: "Periksa kembali isian", description: parsed.error.issues[0]?.message, kind: "error" });
@@ -188,6 +200,11 @@ export default function MasterWarungDetailPage() {
               <p className="mt-1 text-xs text-slate-400">
                 Pemilik: {data.ownerName} · {data.phone}
               </p>
+              {(data.openingTime || data.closingTime) && (
+                <p className="mt-1 text-xs text-slate-400">
+                  Jam operasional: {data.openingTime ?? "-"} – {data.closingTime ?? "-"}
+                </p>
+              )}
             </div>
             <Button size="sm" variant="outline" onClick={() => setEditing((s) => !s)}>
               {editing ? "Batal" : "Edit Info Warung"}
@@ -230,6 +247,24 @@ export default function MasterWarungDetailPage() {
                 <div>
                   <Label htmlFor="e-district">Kecamatan</Label>
                   <Input id="e-district" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} />
+                </div>
+                <div>
+                  <Label htmlFor="e-opening">Jam buka warung</Label>
+                  <Input
+                    id="e-opening"
+                    type="time"
+                    value={form.openingTime}
+                    onChange={(e) => setForm({ ...form, openingTime: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="e-closing">Jam tutup warung</Label>
+                  <Input
+                    id="e-closing"
+                    type="time"
+                    value={form.closingTime}
+                    onChange={(e) => setForm({ ...form, closingTime: e.target.value })}
+                  />
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="e-notes">Catatan</Label>
@@ -297,7 +332,7 @@ export default function MasterWarungDetailPage() {
                     <Badge variant="info">{v.visitTime} WIB</Badge>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    Total jam cuaca: {totalJam}/24 · Sachet terjual hari itu (hingga jam kunjungan): {totalSachet}
+                    Total jam cuaca tercatat: {totalJam} jam · Sachet terjual hari itu (hingga jam kunjungan): {totalSachet}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {v.sales.map((s, i) => (

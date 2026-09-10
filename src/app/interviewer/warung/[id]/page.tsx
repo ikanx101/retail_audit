@@ -32,6 +32,8 @@ interface OutletDetail {
   ownerName: string;
   address: string;
   phone: string;
+  openingTime: string | null;
+  closingTime: string | null;
   visits: Visit[];
 }
 
@@ -59,6 +61,11 @@ export default function WarungDetailPage() {
           <p className="mt-1 text-xs text-slate-400">
             Pemilik: {data.ownerName} · {data.phone}
           </p>
+          {(data.openingTime || data.closingTime) && (
+            <p className="mt-1 text-xs text-slate-400">
+              Jam operasional: {data.openingTime ?? "-"} – {data.closingTime ?? "-"}
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -84,7 +91,7 @@ export default function WarungDetailPage() {
                     <Badge variant="info">{v.visitTime} WIB</Badge>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    Total jam cuaca: {totalJam}/24 · Sachet terjual hari itu (hingga jam kunjungan): {totalSachet}
+                    Total jam cuaca tercatat: {totalJam} jam · Sachet terjual hari itu (hingga jam kunjungan): {totalSachet}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {v.sales.map((s, i) => (

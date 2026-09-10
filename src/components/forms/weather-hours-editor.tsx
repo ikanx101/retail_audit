@@ -1,7 +1,6 @@
 "use client";
 
 import { Input, Label } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 export interface WeatherState {
   weatherClearH: string;
@@ -25,8 +24,6 @@ export function WeatherHoursEditor({
   onChange: (v: WeatherState) => void;
 }) {
   const total = FIELDS.reduce((sum, f) => sum + Number(value[f.key] || 0), 0);
-  const overflow = total > 24;
-  const incomplete = total < 24;
 
   return (
     <div className="space-y-2">
@@ -47,16 +44,9 @@ export function WeatherHoursEditor({
           </div>
         ))}
       </div>
-      <p
-        className={cn(
-          "text-xs",
-          overflow ? "font-medium text-red-600" : incomplete ? "text-amber-600" : "text-emerald-600"
-        )}
-      >
-        Total: {total} / 24 jam
-        {overflow && " — melebihi 24 jam, tidak dapat disimpan"}
-        {!overflow && incomplete && " — belum lengkap (boleh disimpan)"}
-        {!overflow && !incomplete && " — lengkap"}
+      <p className="text-xs text-slate-500">
+        Total jam tercatat: {total} jam. Isi sesuai kondisi yang benar-benar teramati — tidak
+        harus berjumlah 24 jam.
       </p>
     </div>
   );

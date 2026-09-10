@@ -36,6 +36,8 @@ export async function GET(req: NextRequest) {
       "pemilik",
       "alamat",
       "telepon",
+      "jam_buka",
+      "jam_tutup",
       "latitude",
       "longitude",
       "visit_number",

@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  isWeatherOverflow,
-  isWeatherIncomplete,
+  totalWeatherHours,
   isSachetsUnusual,
   isTotalSachetsLarge,
   isVisitTimeUnusual,
@@ -13,18 +12,10 @@ import {
   isWithinIndonesiaBBox,
 } from "./business-rules";
 
-describe("VL-01 aturan jam cuaca", () => {
-  it("total > 24 jam dianggap overflow (error)", () => {
-    expect(isWeatherOverflow({ clear: 10, cloudy: 10, drizzle: 3, rain: 3 })).toBe(true);
-  });
-
-  it("total == 24 jam bukan overflow", () => {
-    expect(isWeatherOverflow({ clear: 12, cloudy: 6, drizzle: 3, rain: 3 })).toBe(false);
-  });
-
-  it("total < 24 jam dianggap belum lengkap, bukan error", () => {
-    expect(isWeatherIncomplete({ clear: 5, cloudy: 5, drizzle: 0, rain: 0 })).toBe(true);
-    expect(isWeatherOverflow({ clear: 5, cloudy: 5, drizzle: 0, rain: 0 })).toBe(false);
+describe("Jam cuaca (sejak v1.5: tidak wajib berjumlah 24 jam)", () => {
+  it("totalWeatherHours menjumlahkan seluruh kondisi apa adanya, tanpa batas 24 jam", () => {
+    expect(totalWeatherHours({ clear: 5, cloudy: 2, drizzle: 0, rain: 0 })).toBe(7);
+    expect(totalWeatherHours({ clear: 12, cloudy: 6, drizzle: 3, rain: 3 })).toBe(24);
   });
 });
 

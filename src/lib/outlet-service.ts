@@ -49,6 +49,8 @@ export async function createOutletWithFirstVisit(
           geolocationSource: input.geolocationSource,
           city: input.city || null,
           district: input.district || null,
+          openingTime: input.openingTime,
+          closingTime: input.closingTime,
           notes: input.outletNotes || null,
           createdById: interviewerId,
         },

@@ -84,6 +84,8 @@ model Outlet {
   geolocationSource GeolocationSource @default(GPS) @map("geolocation_source")
   city              String?
   district          String?
+  openingTime       String?           @map("opening_time") // HH:mm, jam buka warung
+  closingTime       String?           @map("closing_time") // HH:mm, jam tutup warung
   notes             String?
   createdById       String            @map("created_by")
   createdBy         User              @relation("OutletCreatedBy", fields: [createdById], references: [id])

@@ -27,8 +27,10 @@ export async function GET(req: NextRequest) {
   const anomalies = visits
     .map((v) => {
       const reasons: string[] = [];
+      // Sejak v1.5: total jam cuaca tidak wajib 24 jam (interviewer bebas mengisi sesuai kondisi
+      // yang teramati). Hanya ditandai bila total melebihi 24 jam — itu tetap mustahil untuk satu hari.
       const totalWeather = v.weatherClearH + v.weatherCloudyH + v.weatherDrizzleH + v.weatherRainH;
-      if (totalWeather !== 24) reasons.push(`Total jam cuaca = ${totalWeather} (bukan 24)`);
+      if (totalWeather > 24) reasons.push(`Total jam cuaca = ${totalWeather} (melebihi 24 jam, periksa kembali)`);
 
       const totalSachets = v.sales.reduce((sum, s) => sum + s.sachetsSold, 0);
       if (totalSachets === 0) reasons.push("Penjualan 0 sachet pada semua merek");
