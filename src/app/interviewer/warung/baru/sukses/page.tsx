@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { buttonClassNames } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function WarungBaruSuksesPage() {
@@ -29,15 +29,14 @@ function SuksesContent() {
         </CardContent>
       </Card>
       <div className="flex w-full flex-col gap-2">
-        <Link href="/interviewer/warung/baru">
-          <Button className="w-full" size="lg">
-            Lanjut Input Warung Baru
-          </Button>
+        <Link href="/interviewer/warung/baru" className={buttonClassNames({ size: "lg", className: "w-full" })}>
+          Lanjut Input Warung Baru
         </Link>
-        <Link href="/interviewer">
-          <Button variant="outline" className="w-full" size="lg">
-            Kembali ke Beranda
-          </Button>
+        <Link
+          href="/interviewer"
+          className={buttonClassNames({ variant: "outline", size: "lg", className: "w-full" })}
+        >
+          Kembali ke Beranda
         </Link>
       </div>
     </div>

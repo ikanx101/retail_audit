@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { buttonClassNames } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDateWIB } from "@/lib/timezone";
 
@@ -69,10 +69,11 @@ export default function WarungDetailPage() {
         </CardContent>
       </Card>
 
-      <Link href={`/interviewer/warung/${data.id}/kunjungan/baru`}>
-        <Button className="w-full" size="lg">
-          + Kunjungan Ulang
-        </Button>
+      <Link
+        href={`/interviewer/warung/${data.id}/kunjungan/baru`}
+        className={buttonClassNames({ size: "lg", className: "w-full" })}
+      >
+        + Kunjungan Ulang
       </Link>
 
       <div>

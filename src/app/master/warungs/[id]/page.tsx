@@ -16,7 +16,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClassNames } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
@@ -354,10 +354,11 @@ export default function MasterWarungDetailPage() {
                     ))}
                   </div>
                   <div className="mt-3 flex gap-2">
-                    <Link href={`/master/kunjungan/${v.id}`}>
-                      <Button size="sm" variant="outline">
-                        Edit
-                      </Button>
+                    <Link
+                      href={`/master/kunjungan/${v.id}`}
+                      className={buttonClassNames({ size: "sm", variant: "outline" })}
+                    >
+                      Edit
                     </Link>
                     <Button
                       size="sm"

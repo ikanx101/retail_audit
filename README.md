@@ -74,6 +74,22 @@ Perubahan aturan bisnis dan penambahan data warung, atas permintaan pemilik prod
   beserta tautan kembali, dan menonaktifkan retry otomatis TanStack Query (`retry: false`) untuk
   query-query ini agar pesan error tidak tertunda oleh percobaan ulang yang sia-sia.
 
+**Ronde pengujian kedua (Vibium) — tombol "Edit" bersarang tidak valid secara HTML:**
+
+- Empat tempat (tabel kunjungan, riwayat kunjungan di halaman warung, halaman sukses kunjungan
+  pertama, tombol "+ Kunjungan Ulang") merender `<Link><Button>...</Button></Link>`, yang
+  menghasilkan `<button>` di dalam `<a>` — elemen interaktif bersarang yang tidak valid menurut
+  spesifikasi HTML dan berisiko memicu *hydration mismatch* di React. Diperbaiki dengan
+  mengekspor `buttonClassNames()` dari `src/components/ui/button.tsx` (kelas Tailwind yang sama
+  dipakai `<Button>`) dan memakainya langsung pada `<Link>` di keempat tempat tersebut, sehingga
+  hanya ada satu elemen interaktif (`<a>`) per tombol-tautan, tanpa mengubah tampilan sama sekali.
+  Diverifikasi: `document.querySelectorAll("a button").length` kembali ke `0` di seluruh halaman
+  yang diperbaiki, navigasi & gaya tombol tetap identik.
+- Selain itu, dilakukan pengujian ulang penuh lewat browser (Vibium): alur login gagal & akun
+  nonaktif, tambah/reset-password/nonaktifkan interviewer, tambah merek, hapus kunjungan (lewat
+  UI, bukan API langsung), dan pengiriman penuh form Warung Baru (termasuk validasi wajib jam
+  buka/tutup warung) — semuanya berjalan sesuai harapan tanpa ditemukan bug baru.
+
 ---
 
 ### v1.0 — 10 September 2026

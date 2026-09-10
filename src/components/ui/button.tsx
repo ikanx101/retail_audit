@@ -23,20 +23,32 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   size?: Size;
 }
 
+/**
+ * Kelas Tailwind yang sama dipakai <Button>. Dipakai langsung pada elemen lain (mis. <Link>)
+ * saat perlu tampilan tombol tanpa merender <button> — menaruh <button> di dalam <a> (Link)
+ * adalah HTML yang tidak valid (elemen interaktif bersarang) dan bisa memicu hydration
+ * mismatch di React.
+ */
+export function buttonClassNames({
+  variant = "primary",
+  size = "md",
+  className,
+}: {
+  variant?: Variant;
+  size?: Size;
+  className?: string;
+} = {}) {
+  return cn(
+    "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+    variantClasses[variant],
+    sizeClasses[size],
+    className
+  );
+}
+
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", ...props }, ref) => {
-    return (
-      <button
-        ref={ref}
-        className={cn(
-          "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
-          variantClasses[variant],
-          sizeClasses[size],
-          className
-        )}
-        {...props}
-      />
-    );
+    return <button ref={ref} className={buttonClassNames({ variant, size, className })} {...props} />;
   }
 );
 Button.displayName = "Button";

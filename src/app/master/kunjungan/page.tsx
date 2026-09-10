@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClassNames } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { formatDateWIB } from "@/lib/timezone";
@@ -128,10 +128,11 @@ function MasterKunjunganContent() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
-                      <Link href={`/master/kunjungan/${v.id}`}>
-                        <Button size="sm" variant="outline">
-                          Edit
-                        </Button>
+                      <Link
+                        href={`/master/kunjungan/${v.id}`}
+                        className={buttonClassNames({ size: "sm", variant: "outline" })}
+                      >
+                        Edit
                       </Link>
                       <Button
                         size="sm"
