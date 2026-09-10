@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { APP_VERSION } from "@/lib/version";
 
-const BUILD_VERSION = process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.npm_package_version ?? "dev";
+const BUILD_COMMIT = process.env.RAILWAY_GIT_COMMIT_SHA ?? "dev";
 
 // Variabel env yang wajib ada agar aplikasi bisa berfungsi dengan benar (bagian 10 requirement.md).
 const REQUIRED_ENV_VARS = ["DATABASE_URL", "AUTH_SECRET"] as const;
@@ -79,7 +80,8 @@ export async function GET() {
   return NextResponse.json(
     {
       status: overallOk ? "ok" : "error",
-      version: BUILD_VERSION,
+      version: APP_VERSION,
+      buildCommit: BUILD_COMMIT,
       time,
       failing: overallOk ? [] : failing,
       checks,

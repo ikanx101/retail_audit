@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { OnlineStatusBar } from "@/components/online-status-bar";
 import { ServiceWorkerRegister } from "@/components/sw-register";
+import { AppFooter } from "@/components/app-footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,11 +41,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 text-slate-900`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col antialiased bg-slate-50 text-slate-900`}
+      >
         <Providers>
           <ServiceWorkerRegister />
           <OnlineStatusBar />
-          {children}
+          <div className="flex flex-1 flex-col">{children}</div>
+          <AppFooter />
         </Providers>
       </body>
     </html>

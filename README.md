@@ -1,5 +1,9 @@
 # Retail Audit Sachet
 
+**Versi saat ini: 1.0** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
+dan di respons `GET /api/health` (`version`). Lihat [Riwayat Revisi](#riwayat-revisi) untuk
+catatan lengkap setiap perubahan sejak versi ini dirilis.
+
 Webapps untuk pelaksanaan studi **market research (retail audit)** pada warung kopi dan toko
 kelontong yang menjual minuman sachet. Dipakai oleh dua peran:
 
@@ -13,13 +17,54 @@ penggunaan dan panduan deployment.
 
 ## Daftar Isi
 
-1. [Tumpukan Teknologi](#tumpukan-teknologi)
-2. [Menjalankan di Lokal](#menjalankan-di-lokal)
-3. [Panduan Penggunaan](#panduan-penggunaan)
-4. [Deployment ke Railway](#deployment-ke-railway)
-5. [Struktur Proyek](#struktur-proyek)
-6. [Testing & CI](#testing--ci)
-7. [Status Implementasi & Batasan](#status-implementasi--batasan)
+1. [Riwayat Revisi](#riwayat-revisi)
+2. [Tumpukan Teknologi](#tumpukan-teknologi)
+3. [Menjalankan di Lokal](#menjalankan-di-lokal)
+4. [Panduan Penggunaan](#panduan-penggunaan)
+5. [Deployment ke Railway](#deployment-ke-railway)
+6. [Diagnostik Deployment (Health Check)](#diagnostik-deployment-health-check)
+7. [Struktur Proyek](#struktur-proyek)
+8. [Testing](#testing)
+9. [Status Implementasi & Batasan](#status-implementasi--batasan)
+
+---
+
+## Riwayat Revisi
+
+Semua perubahan pada aplikasi ini dicatat di sini secara kronologis (terbaru di atas). Nomor
+versi mengikuti versi yang tampil di footer webapp dan `/api/health`.
+
+### v1.0 — 10 September 2026
+
+Rilis awal: implementasi penuh Fase 1 (MVP) dan sebagian besar Fase 2–3 dari `requirement.md`
+(autentikasi & RBAC, form kunjungan pertama & ulang, dashboard, export, offline sync — lihat
+[Status Implementasi & Batasan](#status-implementasi--batasan) untuk rincian lengkap), diikuti
+beberapa perbaikan stabilisasi pada hari yang sama:
+
+- **Perbaikan alur login lintas akun** — navigasi setelah login diganti dari `router.push` (SPA)
+  menjadi navigasi penuh (`window.location.assign`). Sebelumnya, saat berganti akun di browser
+  yang sama (mis. dari Master ke Interviewer), cache navigasi klien Next.js bisa menyajikan
+  tujuan redirect akun sebelumnya alih-alih akun yang baru login.
+- **Health check diperkaya jadi diagnostik bertahap** (`GET /api/health`) — sebelumnya hanya
+  mengecek koneksi database, sekarang mengembalikan status terpisah untuk `app` (proses berjalan),
+  `env` (variabel wajib tersedia), `database` (konektivitas + latensi), dan `migrations` (skema
+  sudah diterapkan). Tujuannya: saat deployment bermasalah, langsung terlihat apakah penyebabnya
+  di sisi aplikasi atau database. Lihat [Diagnostik Deployment](#diagnostik-deployment-health-check).
+- **Perbaikan build Railway (`EBUSY`)** — `railway.json` semula memakai `npm ci`, yang menghapus
+  total folder `node_modules` sebelum instalasi ulang. Ini bentrok dengan cache build persisten
+  Railway yang di-mount tepat di `node_modules/.cache`, menyebabkan build gagal dengan
+  `EBUSY: resource busy or locked, rmdir '/app/node_modules/.cache'`. Build command diganti
+  menjadi `npm install --include=dev && npm run build` (instal di tempat, tidak menghapus folder,
+  dan memastikan devDependencies seperti TypeScript/Tailwind/ESLint tetap terpasang meski Railway
+  mengatur konfigurasi npm "production" saat build).
+- **GitHub Actions CI (`ci.yml`) dihapus** atas permintaan eksplisit pemilik proyek — token GitHub
+  yang dipakai untuk push tidak memiliki scope `workflow`, sehingga push ditolak setiap kali
+  `.github/workflows/ci.yml` ikut ter-commit. Proyek ini sengaja **tidak** memakai GitHub Actions;
+  jalankan `npm run lint`, `npm run typecheck`, `npm run test`, dan `npm run build` secara manual
+  sebelum push (lihat [Testing](#testing)). Auto-deploy Railway tetap berjalan normal tanpa CI ini
+  — keduanya adalah mekanisme terpisah (lihat [Deployment ke Railway](#deployment-ke-railway)).
+- **Versi "1.0" ditambahkan sebagai footnote** di setiap halaman webapp (`src/components/app-footer.tsx`)
+  dan pada respons `/api/health`, bersumber dari satu konstanta di `src/lib/version.ts`.
 
 ---
 
@@ -39,7 +84,7 @@ penggunaan dan panduan deployment.
 | Offline | Dexie.js (IndexedDB) untuk draft & antrean sinkronisasi + Service Worker app-shell |
 | Export | ExcelJS (XLSX) + generator CSV bawaan |
 | Testing | Vitest (unit), ESLint + Prettier |
-| Deployment | Railway (Nixpacks, plugin PostgreSQL) + GitHub Actions CI |
+| Deployment | Railway (Nixpacks, plugin PostgreSQL), auto-deploy dari GitHub — tanpa CI otomatis (lihat [Riwayat Revisi](#riwayat-revisi)) |
 
 ---
 
@@ -217,10 +262,15 @@ Satu project Railway berisi:
    mengikuti kredensial plugin tanpa hardcode.
 
 5. **Build & start command** sudah diatur lewat [`railway.json`](./railway.json) di root repo:
-   - Build: `npm ci && npm run build` (termasuk `prisma generate`)
+   - Build: `npm install --include=dev && npm run build` (termasuk `prisma generate`). Sengaja
+     memakai `npm install`, **bukan** `npm ci` — `npm ci` menghapus total `node_modules` sebelum
+     instal ulang, yang bentrok dengan cache build persisten Railway di `node_modules/.cache`
+     (lihat [Riwayat Revisi](#riwayat-revisi)). Flag `--include=dev` memastikan devDependencies
+     (TypeScript, Tailwind, ESLint) tetap terpasang untuk keperluan build.
    - Start: `npx prisma migrate deploy && npm run start` — migrasi database dijalankan otomatis
      sebelum aplikasi start setiap kali deploy.
-   - Healthcheck: `/api/health` (mengecek koneksi database).
+   - Healthcheck: `/api/health` — diagnostik bertahap (app/env/database/migrasi), lihat
+     [Diagnostik Deployment](#diagnostik-deployment-health-check).
 
 6. **Deploy.** Railway akan build & jalankan otomatis. Pantau log build untuk memastikan
    `prisma migrate deploy` sukses.
@@ -238,12 +288,23 @@ Satu project Railway berisi:
 8. **Login** ke URL produksi dengan akun master tersebut, lalu mulai buat akun interviewer dari
    menu **Kelola Interviewer**.
 
-### Auto-deploy & CI
+### Auto-deploy (tanpa CI otomatis)
 
-- Setiap push ke `main` memicu **GitHub Actions** ([`ci.yml`](./.github/workflows/ci.yml)):
-  install → lint → typecheck → `prisma validate` → migrasi ke database CI sementara → unit
-  test → build. Jika CI merah, jangan merge/deploy.
-- Setelah CI hijau dan kode masuk ke `main`, Railway otomatis membangun & men-deploy ulang.
+- Setiap push ke `main` langsung memicu **Railway** untuk build & deploy ulang (webhook GitHub
+  bawaan Railway, terpasang saat repo dihubungkan ke project Railway). Ini berjalan independen
+  dari mekanisme CI apa pun.
+- Proyek ini **sengaja tidak** memakai GitHub Actions/CI otomatis (lihat
+  [Riwayat Revisi](#riwayat-revisi) untuk alasannya — token push yang dipakai tidak punya scope
+  `workflow`, dan pemilik proyek memutuskan untuk tidak menambahkannya kembali). Konsekuensinya:
+  **jalankan pengecekan secara manual sebelum push** — lint, typecheck, unit test, dan build tidak
+  divalidasi otomatis di GitHub, sehingga commit yang rusak bisa saja langsung sampai ke Railway:
+
+  ```bash
+  npm run lint && npm run typecheck && npm run test && npm run build
+  ```
+
+  Bila suatu saat ingin mengaktifkan CI kembali, tambahkan file workflow lewat GitHub web UI
+  (bukan lewat push dari token tanpa scope `workflow`) atau gunakan token dengan scope tersebut.
 
 ### Backup
 
@@ -255,6 +316,43 @@ Satu project Railway berisi:
 
 Buat environment Railway kedua (`develop`) dengan plugin PostgreSQL terpisah, terhubung ke
 branch `develop`, agar perubahan bisa diuji sebelum masuk `main`/produksi.
+
+---
+
+## Diagnostik Deployment (Health Check)
+
+`GET /api/health` (dipakai sebagai `healthcheckPath` Railway) mengembalikan status per komponen,
+bukan hanya "hidup/mati" — tujuannya supaya saat deployment bermasalah, penyebabnya bisa langsung
+dibedakan: **database** atau **aplikasi**. Contoh respons:
+
+```json
+{
+  "status": "ok",
+  "version": "1.0",
+  "buildCommit": "a1b2c3d",
+  "time": "2026-09-10T12:50:51.239Z",
+  "failing": [],
+  "checks": {
+    "app": { "status": "ok" },
+    "env": { "status": "ok" },
+    "database": { "status": "ok", "latencyMs": 77 },
+    "migrations": { "status": "ok" }
+  }
+}
+```
+
+Cara membaca hasilnya:
+
+| Situasi | Penyebab | Yang harus dicek |
+|---|---|---|
+| `/api/health` tidak bisa diakses sama sekali (timeout/connection refused, bukan JSON) | Proses aplikasi **gagal start** — bukan masalah database | Log **build & deploy** Railway, bukan endpoint ini (build error, `start` command gagal, crash saat boot) |
+| `checks.env.status: "error"` | Variabel environment wajib belum diatur (`DATABASE_URL`, `AUTH_SECRET`) | Tab *Variables* di service Railway |
+| `checks.database.status: "error"` | Aplikasi jalan, tapi **tidak bisa konek ke database** | `DATABASE_URL`/`DIRECT_URL`, status plugin PostgreSQL, `checks.database.message` untuk pesan error asli |
+| `checks.migrations.status: "error"` (padahal `database: "ok"`) | Database konek, tapi **skema/tabel belum ada** — kemungkinan `prisma migrate deploy` belum/gagal jalan | Log deploy (bagian `npx prisma migrate deploy`), coba jalankan ulang manual lewat *Shell* Railway |
+| Semua `status: "ok"` tapi fitur tertentu tetap error | Di luar cakupan health check (mis. bug logika bisnis) | Log aplikasi (pino), halaman/endpoint terkait langsung |
+
+`status: "error"` pada level teratas membuat healthcheck merespons HTTP 503, sehingga Railway akan
+menandai deployment tidak sehat dan menjalankan `restartPolicy` sesuai `railway.json`.
 
 ---
 
@@ -273,17 +371,20 @@ src/
     api/                  # route handlers (auth, outlets, visits, sync, master/*, export, health)
   auth.ts                # konfigurasi Auth.js (NextAuth v5)
   middleware.ts           # proteksi route berbasis role
-  lib/                    # validasi Zod, aturan bisnis, Prisma client, offline (Dexie), dll.
-  components/              # komponen UI (form, dashboard, ui dasar bergaya shadcn/ui)
+  lib/                    # validasi Zod, aturan bisnis, Prisma client, offline (Dexie), version.ts, dll.
+  components/              # komponen UI (form, dashboard, ui dasar bergaya shadcn/ui, app-footer.tsx)
 public/
   manifest.json, sw.js, icons/   # aset PWA
 railway.json               # konfigurasi build/start/healthcheck Railway
-.github/workflows/ci.yml   # pipeline CI
 ```
+
+> Catatan: repo ini **tidak** memakai GitHub Actions/CI otomatis (lihat
+> [Riwayat Revisi](#riwayat-revisi)) — jalankan pengecekan secara manual, lihat bagian
+> [Testing](#testing) di bawah.
 
 ---
 
-## Testing & CI
+## Testing
 
 ```bash
 npm run lint        # ESLint
