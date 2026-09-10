@@ -83,11 +83,13 @@ export default function MasterWarungDetailPage() {
   const [deleting, setDeleting] = React.useState(false);
   const editLoaded = React.useRef(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["outlet", params.id],
+    retry: false,
     queryFn: async (): Promise<OutletDetail> => {
       const res = await fetch(`/api/outlets/${params.id}`);
       const json = await res.json();
+      if (!res.ok || !json.data) throw new Error(json?.error ?? "Warung tidak ditemukan");
       return json.data;
     },
   });
@@ -187,7 +189,17 @@ export default function MasterWarungDetailPage() {
     }
   }
 
-  if (isLoading || !data) return <p className="text-sm text-slate-400">Memuat...</p>;
+  if (isLoading) return <p className="text-sm text-slate-400">Memuat...</p>;
+  if (isError || !data) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-red-600">Warung tidak ditemukan — mungkin tautannya tidak valid.</p>
+        <Link href="/master/warungs" className="text-sm text-blue-600 underline">
+          ← Kembali ke daftar warung
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

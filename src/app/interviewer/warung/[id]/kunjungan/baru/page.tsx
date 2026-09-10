@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Input, Label, Textarea } from "@/components/ui/input";
@@ -41,11 +42,13 @@ export default function KunjunganUlangPage() {
     },
   });
 
-  const { data: outlet, isLoading } = useQuery({
+  const { data: outlet, isLoading, isError } = useQuery({
     queryKey: ["outlet", params.id],
+    retry: false,
     queryFn: async (): Promise<OutletDetail> => {
       const res = await fetch(`/api/outlets/${params.id}`);
       const json = await res.json();
+      if (!res.ok || !json.data) throw new Error(json?.error ?? "Warung tidak ditemukan");
       return json.data;
     },
   });
@@ -248,7 +251,17 @@ export default function KunjunganUlangPage() {
     actuallySubmit();
   }
 
-  if (isLoading || !outlet) return <p className="text-sm text-slate-400">Memuat...</p>;
+  if (isLoading) return <p className="text-sm text-slate-400">Memuat...</p>;
+  if (isError || !outlet) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-red-600">Warung tidak ditemukan — mungkin tautannya tidak valid.</p>
+        <Link href="/interviewer/pilih-warung" className="text-sm text-blue-600 underline">
+          ← Kembali ke daftar warung
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-10">

@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     orderBy: { updatedAt: "desc" },
     include: {
       visits: { orderBy: { visitDate: "desc" }, take: 1, where: { isDeleted: false } },
-      _count: { select: { visits: true } },
+      _count: { select: { visits: { where: { isDeleted: false } } } },
     },
   });
 

@@ -14,7 +14,12 @@ export async function GET() {
     where: { role: "INTERVIEWER" },
     orderBy: { createdAt: "desc" },
     include: {
-      _count: { select: { outlets: true, visits: true } },
+      _count: {
+        select: {
+          outlets: { where: { isDeleted: false } },
+          visits: { where: { isDeleted: false } },
+        },
+      },
     },
   });
 

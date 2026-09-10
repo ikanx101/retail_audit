@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Input, Label, Textarea } from "@/components/ui/input";
@@ -61,8 +62,9 @@ export default function MasterEditKunjunganPage() {
     },
   });
 
-  const { data: visit, isLoading } = useQuery({
+  const { data: visit, isLoading, isError } = useQuery({
     queryKey: ["master-visit", params.id],
+    retry: false,
     queryFn: async (): Promise<VisitDetail> => {
       const res = await fetch(`/api/master/visits/${params.id}`);
       if (!res.ok) throw new Error("Kunjungan tidak ditemukan");
@@ -191,7 +193,19 @@ export default function MasterEditKunjunganPage() {
     }
   }
 
-  if (isLoading || !visit) return <p className="text-sm text-slate-400">Memuat...</p>;
+  if (isLoading) return <p className="text-sm text-slate-400">Memuat...</p>;
+  if (isError || !visit) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-red-600">
+          Kunjungan tidak ditemukan — mungkin sudah dihapus atau tautannya tidak valid.
+        </p>
+        <Link href="/master/kunjungan" className="text-sm text-blue-600 underline">
+          ← Kembali ke tabel kunjungan
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-10">

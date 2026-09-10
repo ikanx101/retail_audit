@@ -55,6 +55,25 @@ Perubahan aturan bisnis dan penambahan data warung, atas permintaan pemilik prod
   Kolom database bersifat nullable agar data warung yang sudah ada sebelum v1.5 tidak perlu diisi
   ulang secara paksa.
 
+**Bug ditemukan & diperbaiki saat pengujian menyeluruh (browser, memakai Vibium):**
+
+- **Jumlah warung/kunjungan ikut menghitung data yang sudah dihapus (soft delete).** Kartu
+  "Warung"/"Kunjungan" pada `/master/warungs`, `/master/interviewer`, dan daftar warung
+  interviewer memakai `_count` Prisma yang tidak memfilter `is_deleted` — akibatnya sebuah warung
+  yang satu-satunya kunjungan sudah di-*soft delete* Master tetap menampilkan "1 kunjungan",
+  padahal seharusnya "0". Diperbaiki dengan memberi klausa `where: { isDeleted: false }` pada
+  setiap `_count.select` terkait (`src/app/api/outlets/route.ts`,
+  `src/app/api/interviewers/route.ts`).
+- **Halaman edit tersangkut selamanya di "Memuat..." bila datanya tidak ditemukan.** Tiga halaman
+  (`/master/kunjungan/[id]`, `/master/warungs/[id]`, `/interviewer/warung/[id]/kunjungan/baru`)
+  memakai kondisi `isLoading || !data` untuk menentukan kapan menampilkan "Memuat..." — begitu
+  request gagal (mis. kunjungan/warung sudah dihapus, atau tautan salah), `isLoading` menjadi
+  `false` tapi `data` tetap `undefined`, sehingga kondisi itu tetap bernilai benar dan halaman
+  terjebak menampilkan "Memuat..." tanpa henti alih-alih pesan error. Diperbaiki dengan
+  memisahkan status `isLoading` dari `isError`, menampilkan pesan "tidak ditemukan" yang jelas
+  beserta tautan kembali, dan menonaktifkan retry otomatis TanStack Query (`retry: false`) untuk
+  query-query ini agar pesan error tidak tertunda oleh percobaan ulang yang sia-sia.
+
 ---
 
 ### v1.0 — 10 September 2026
