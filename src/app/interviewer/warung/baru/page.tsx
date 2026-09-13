@@ -3,19 +3,16 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { useQuery } from "@tanstack/react-query";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { LocationPickerLazy } from "@/components/forms/location-picker-lazy";
-import { WeatherHoursEditor, type WeatherState } from "@/components/forms/weather-hours-editor";
-import { SalesRowsEditor, type SaleRowState } from "@/components/forms/sales-rows-editor";
 import { useGeolocation } from "@/lib/use-geolocation";
-import { newOutletVisitSchema } from "@/lib/validations";
-import { isGpsAccuracyPoor, isTotalSachetsLarge, isVisitTimeUnusual } from "@/lib/business-rules";
-import { todayWIB, nowTimeWIB } from "@/lib/timezone";
+import { outletRegistrationSchema } from "@/lib/validations";
+import { isGpsAccuracyPoor } from "@/lib/business-rules";
+import { todayWIB } from "@/lib/timezone";
 import { saveDraft, loadDraft, clearDraft, enqueueSubmission } from "@/lib/offline-db";
 
 const DRAFT_KEY = "new_outlet";
@@ -33,10 +30,10 @@ interface ScalarFields {
   closingTime: string;
   outletNotes: string;
   visitDate: string;
-  visitTime: string;
-  visitNotes: string;
 }
 
+// Kunjungan pertama (v2.5): HANYA mendata warung — tidak ada pertanyaan cuaca maupun
+// merek/sachet di sini. Itu baru muncul mulai kunjungan ke-2 lewat dua formulir terpisah.
 export default function WarungBaruPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -47,15 +44,6 @@ export default function WarungBaruPage() {
   const [lng, setLng] = React.useState(DEFAULT_LNG);
   const [accuracyM, setAccuracyM] = React.useState<number | null>(null);
   const [geoSource, setGeoSource] = React.useState<"GPS" | "MANUAL">("MANUAL");
-  const [weather, setWeather] = React.useState<WeatherState>({
-    weatherClearH: "0",
-    weatherCloudyH: "0",
-    weatherDrizzleH: "0",
-    weatherRainH: "0",
-  });
-  const [sales, setSales] = React.useState<SaleRowState[]>([
-    { key: crypto.randomUUID(), brandId: null, brandName: "", sachetsSold: "", variantNote: "" },
-  ]);
   const [confirmState, setConfirmState] = React.useState<{ open: boolean; message: string; onConfirm?: () => void }>({
     open: false,
     message: "",
@@ -74,17 +62,6 @@ export default function WarungBaruPage() {
       closingTime: "",
       outletNotes: "",
       visitDate: todayWIB(),
-      visitTime: nowTimeWIB(),
-      visitNotes: "",
-    },
-  });
-
-  const { data: brandOptions } = useQuery({
-    queryKey: ["brands"],
-    queryFn: async () => {
-      const res = await fetch("/api/brands");
-      const json = await res.json();
-      return (json.data ?? []) as { id: string; name: string }[];
     },
   });
 
@@ -92,10 +69,10 @@ export default function WarungBaruPage() {
   const watched = watch();
   React.useEffect(() => {
     const timeout = setTimeout(() => {
-      saveDraft(DRAFT_KEY, { ...watched, lat, lng, accuracyM, geoSource, weather, sales });
+      saveDraft(DRAFT_KEY, { ...watched, lat, lng, accuracyM, geoSource });
     }, 500);
     return () => clearTimeout(timeout);
-  }, [watched, lat, lng, accuracyM, geoSource, weather, sales]);
+  }, [watched, lat, lng, accuracyM, geoSource]);
 
   React.useEffect(() => {
     loadDraft(DRAFT_KEY).then((draft) => {
@@ -112,15 +89,11 @@ export default function WarungBaruPage() {
         closingTime: (d.closingTime as string) ?? "",
         outletNotes: (d.outletNotes as string) ?? "",
         visitDate: (d.visitDate as string) ?? todayWIB(),
-        visitTime: (d.visitTime as string) ?? nowTimeWIB(),
-        visitNotes: (d.visitNotes as string) ?? "",
       });
       if (typeof d.lat === "number") setLat(d.lat);
       if (typeof d.lng === "number") setLng(d.lng);
       if (typeof d.accuracyM === "number") setAccuracyM(d.accuracyM);
       if (d.geoSource) setGeoSource(d.geoSource as "GPS" | "MANUAL");
-      if (d.weather) setWeather(d.weather as WeatherState);
-      if (Array.isArray(d.sales) && d.sales.length > 0) setSales(d.sales as SaleRowState[]);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -148,25 +121,10 @@ export default function WarungBaruPage() {
       closingTime: scalars.closingTime,
       outletNotes: scalars.outletNotes || null,
       visitDate: scalars.visitDate,
-      visitTime: scalars.visitTime,
-      visitNotes: scalars.visitNotes || null,
       latitude: lat,
       longitude: lng,
       accuracyM: accuracyM,
       geolocationSource: geoSource,
-      weatherClearH: Number(weather.weatherClearH || 0),
-      weatherCloudyH: Number(weather.weatherCloudyH || 0),
-      weatherDrizzleH: Number(weather.weatherDrizzleH || 0),
-      weatherRainH: Number(weather.weatherRainH || 0),
-      sales: sales
-        .filter((s) => s.brandName.trim() !== "")
-        .map((s) => ({
-          brandId: s.brandId,
-          brandName: s.brandName.trim(),
-          sachetsSold: Number(s.sachetsSold || 0),
-          variantNote: s.variantNote || null,
-          isNewBrand: !s.brandId,
-        })),
     };
   }
 
@@ -181,7 +139,7 @@ export default function WarungBaruPage() {
       });
       if (res.ok) {
         await clearDraft(DRAFT_KEY);
-        toast({ title: "Kunjungan tersimpan", kind: "success" });
+        toast({ title: "Warung tersimpan", kind: "success" });
         router.push(`/interviewer/warung/baru/sukses?nama=${encodeURIComponent(payload.name)}`);
         return;
       }
@@ -204,7 +162,7 @@ export default function WarungBaruPage() {
 
   const onSubmit = handleSubmit(() => {
     const payload = buildPayload();
-    const parsed = newOutletVisitSchema.safeParse(payload);
+    const parsed = outletRegistrationSchema.safeParse(payload);
     if (!parsed.success) {
       toast({
         title: "Periksa kembali isian Anda",
@@ -214,35 +172,8 @@ export default function WarungBaruPage() {
       return;
     }
 
-    // Soft warnings berurutan (FR-45, VL-02, VL-11, FR-14)
-    if (isVisitTimeUnusual(payload.visitTime!)) {
-      setConfirmState({
-        open: true,
-        message: "Jam kunjungan di luar 04:00–23:00. Yakin jam ini benar?",
-        onConfirm: () => {
-          setConfirmState({ open: false, message: "" });
-          checkTotalSachets(payload);
-        },
-      });
-      return;
-    }
-    checkTotalSachets(payload);
-  });
-
-  function checkTotalSachets(payload: ReturnType<typeof buildPayload>) {
-    if (isTotalSachetsLarge(payload.sales.map((s) => ({ sachets: s.sachetsSold })))) {
-      setConfirmState({
-        open: true,
-        message: "Total penjualan hari ini cukup besar untuk satu warung. Yakin angka ini penjualan hari ini, bukan kumulatif?",
-        onConfirm: () => {
-          setConfirmState({ open: false, message: "" });
-          checkAccuracy();
-        },
-      });
-      return;
-    }
     checkAccuracy();
-  }
+  });
 
   function checkAccuracy() {
     if (geoSource === "GPS" && isGpsAccuracyPoor(accuracyM)) {
@@ -262,6 +193,10 @@ export default function WarungBaruPage() {
   return (
     <div className="space-y-6 pb-10">
       <h1 className="text-lg font-semibold text-slate-900">Warung Baru — Kunjungan Pertama</h1>
+      <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+        Kunjungan pertama hanya mendata warung. Data cuaca & merek/sachet baru diisi mulai
+        kunjungan ke-2 lewat menu &ldquo;Kunjungan Ulang&rdquo;.
+      </p>
 
       <form onSubmit={onSubmit} className="space-y-6">
         <Card>
@@ -281,7 +216,7 @@ export default function WarungBaruPage() {
             </div>
             <div>
               <Label htmlFor="phone">Nomor telepon pemilik *</Label>
-              <Input id="phone" inputMode="tel" placeholder="08xxxxxxxxxx" {...register("phone", { required: true })} />
+              <Input id="phone" inputMode="tel" placeholder="Nomor telepon" {...register("phone", { required: true })} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -370,48 +305,16 @@ export default function WarungBaruPage() {
 
         <Card>
           <CardContent className="space-y-3 p-4">
-            <h2 className="text-sm font-semibold text-slate-700">Waktu Kunjungan</h2>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label htmlFor="visitDate">Tanggal kunjungan *</Label>
-                <Input id="visitDate" type="date" {...register("visitDate", { required: true })} />
-              </div>
-              <div>
-                <Label htmlFor="visitTime">Jam kunjungan *</Label>
-                <Input id="visitTime" type="time" {...register("visitTime", { required: true })} />
-              </div>
+            <h2 className="text-sm font-semibold text-slate-700">Tanggal Registrasi</h2>
+            <div>
+              <Label htmlFor="visitDate">Tanggal kunjungan *</Label>
+              <Input id="visitDate" type="date" {...register("visitDate", { required: true })} />
             </div>
-            <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
-              Catat penjualan HARI INI saja (hingga jam Anda sekarang), bukan total kumulatif.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="space-y-3 p-4">
-            <h2 className="text-sm font-semibold text-slate-700">Kondisi Cuaca (dalam jam)</h2>
-            <WeatherHoursEditor value={weather} onChange={setWeather} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="space-y-3 p-4">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Sachet terjual hari ini (hingga jam kunjungan)
-            </h2>
-            <SalesRowsEditor rows={sales} onChange={setSales} brandOptions={brandOptions ?? []} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="space-y-3 p-4">
-            <Label htmlFor="visitNotes">Catatan kunjungan (opsional)</Label>
-            <Textarea id="visitNotes" {...register("visitNotes")} />
           </CardContent>
         </Card>
 
         <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-          {submitting ? "Menyimpan..." : "Simpan Kunjungan"}
+          {submitting ? "Menyimpan..." : "Simpan Warung"}
         </Button>
       </form>
 

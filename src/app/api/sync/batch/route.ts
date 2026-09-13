@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/api-auth";
-import { newOutletVisitSchema, revisitSchema } from "@/lib/validations";
-import { createOutletWithFirstVisit, createOrUpdateRevisit, ServiceError } from "@/lib/outlet-service";
+import { outletRegistrationSchema, revisitWeatherSchema, revisitSalesSchema } from "@/lib/validations";
+import { createOutletRegistration, submitRevisitWeather, submitRevisitSales, ServiceError } from "@/lib/outlet-service";
 import { logger } from "@/lib/logger";
 
 const batchItemSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("new_outlet"), clientUuid: z.string().uuid(), payload: newOutletVisitSchema }),
-  z.object({ type: z.literal("revisit"), clientUuid: z.string().uuid(), payload: revisitSchema }),
+  z.object({ type: z.literal("new_outlet"), clientUuid: z.string().uuid(), payload: outletRegistrationSchema }),
+  z.object({ type: z.literal("revisit_weather"), clientUuid: z.string().uuid(), payload: revisitWeatherSchema }),
+  z.object({ type: z.literal("revisit_sales"), clientUuid: z.string().uuid(), payload: revisitSalesSchema }),
 ]);
 
 const batchSchema = z.object({ items: z.array(batchItemSchema).min(1).max(100) });
@@ -27,13 +28,15 @@ export async function POST(req: NextRequest) {
 
   for (const item of parsed.data.items) {
     try {
+      let data;
       if (item.type === "new_outlet") {
-        const data = await createOutletWithFirstVisit(session!.user.id, item.payload);
-        results.push({ clientUuid: item.clientUuid, ok: true, data });
+        data = await createOutletRegistration(session!.user.id, item.payload);
+      } else if (item.type === "revisit_weather") {
+        data = await submitRevisitWeather(session!.user.id, item.payload);
       } else {
-        const data = await createOrUpdateRevisit(session!.user.id, item.payload);
-        results.push({ clientUuid: item.clientUuid, ok: true, data });
+        data = await submitRevisitSales(session!.user.id, item.payload);
       }
+      results.push({ clientUuid: item.clientUuid, ok: true, data });
     } catch (err: unknown) {
       if (err instanceof ServiceError) {
         results.push({ clientUuid: item.clientUuid, ok: false, error: err.message });

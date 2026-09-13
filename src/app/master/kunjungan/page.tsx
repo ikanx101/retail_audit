@@ -17,8 +17,10 @@ interface VisitRow {
   interviewer: { fullName: string; username: string };
   visitNumber: number;
   visitDate: string;
-  visitTime: string;
-  weather: { clear: number; cloudy: number; drizzle: number; rain: number; total: number };
+  visitTime: string | null;
+  weatherFilled: boolean;
+  weather: { clear: number; cloudy: number; drizzle: number; rain: number; total: number } | null;
+  salesFilled: boolean;
   sales: { brand: string; sachetsSold: number; isNewBrand: boolean }[];
   totalSachets: number;
   isOfflineCreated: boolean;
@@ -106,20 +108,32 @@ function MasterKunjunganContent() {
                   <td className="px-3 py-2 font-medium text-slate-900">{v.outlet.name}</td>
                   <td className="px-3 py-2 text-slate-500">{v.outlet.address}</td>
                   <td className="px-3 py-2">{formatDateWIB(v.visitDate)}</td>
-                  <td className="px-3 py-2">{v.visitTime} WIB</td>
+                  <td className="px-3 py-2">{v.visitTime ? `${v.visitTime} WIB` : "—"}</td>
                   <td className="px-3 py-2">
-                    C:{v.weather.clear} M:{v.weather.cloudy} G:{v.weather.drizzle} H:{v.weather.rain} (
-                    {v.weather.total})
+                    {v.weatherFilled && v.weather ? (
+                      <>
+                        C:{v.weather.clear} M:{v.weather.cloudy} G:{v.weather.drizzle} H:{v.weather.rain} (
+                        {v.weather.total})
+                      </>
+                    ) : (
+                      <Badge variant="warning">Belum diisi</Badge>
+                    )}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {v.sales.map((s, i) => (
-                        <Badge key={i} variant={s.isNewBrand ? "info" : "default"}>
-                          {s.brand}: {s.sachetsSold}
-                        </Badge>
-                      ))}
-                    </div>
-                    <p className="mt-1 text-xs font-medium text-slate-700">Total: {v.totalSachets}</p>
+                    {v.salesFilled ? (
+                      <>
+                        <div className="flex flex-wrap gap-1">
+                          {v.sales.map((s, i) => (
+                            <Badge key={i} variant={s.isNewBrand ? "info" : "default"}>
+                              {s.brand}: {s.sachetsSold}
+                            </Badge>
+                          ))}
+                        </div>
+                        <p className="mt-1 text-xs font-medium text-slate-700">Total: {v.totalSachets}</p>
+                      </>
+                    ) : (
+                      <Badge variant="warning">Belum diisi</Badge>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <Badge variant={v.isOfflineCreated ? "warning" : "success"}>

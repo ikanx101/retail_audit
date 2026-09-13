@@ -41,7 +41,7 @@ export default function PilihWarungPage() {
 
       <div className="space-y-2">
         {filtered.map((o) => (
-          <Link key={o.id} href={`/interviewer/warung/${o.id}/kunjungan/baru`}>
+          <Link key={o.id} href={`/interviewer/warung/${o.id}`}>
             <Card className="transition hover:shadow-md">
               <CardContent className="p-3">
                 <p className="font-medium text-slate-900">{o.name}</p>

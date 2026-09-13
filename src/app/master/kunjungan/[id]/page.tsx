@@ -19,11 +19,11 @@ interface VisitDetail {
   id: string;
   visitNumber: number;
   visitDate: string;
-  visitTime: string;
-  weatherClearH: number;
-  weatherCloudyH: number;
-  weatherDrizzleH: number;
-  weatherRainH: number;
+  visitTime: string | null;
+  weatherClearH: number | null;
+  weatherCloudyH: number | null;
+  weatherDrizzleH: number | null;
+  weatherRainH: number | null;
   notes: string | null;
   outlet: { id: string; name: string };
   interviewer: { fullName: string; username: string };
@@ -77,13 +77,13 @@ export default function MasterEditKunjunganPage() {
     if (visit && !loaded.current) {
       loaded.current = true;
       setVisitDate(visit.visitDate.slice(0, 10));
-      setVisitTime(visit.visitTime);
+      setVisitTime(visit.visitTime ?? "");
       setNotes(visit.notes ?? "");
       setWeather({
-        weatherClearH: String(visit.weatherClearH),
-        weatherCloudyH: String(visit.weatherCloudyH),
-        weatherDrizzleH: String(visit.weatherDrizzleH),
-        weatherRainH: String(visit.weatherRainH),
+        weatherClearH: String(visit.weatherClearH ?? 0),
+        weatherCloudyH: String(visit.weatherCloudyH ?? 0),
+        weatherDrizzleH: String(visit.weatherDrizzleH ?? 0),
+        weatherRainH: String(visit.weatherRainH ?? 0),
       });
       setSales(
         visit.sales.map((s) => ({
@@ -217,6 +217,15 @@ export default function MasterEditKunjunganPage() {
           Diinput oleh {visit.interviewer.fullName} ({visit.interviewer.username}) ·{" "}
           {formatDateWIB(visit.visitDate)}
         </p>
+        {(visit.weatherClearH == null || visit.visitTime == null) && (
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            Sejak v2.5, interviewer mengisi cuaca & penjualan lewat dua formulir terpisah — kunjungan
+            ini belum lengkap ({visit.weatherClearH == null && "cuaca belum diisi"}
+            {visit.weatherClearH == null && visit.visitTime == null && ", "}
+            {visit.visitTime == null && "penjualan belum diisi"}). Menyimpan perubahan di sini akan
+            melengkapi bagian yang kosong dengan nilai pada formulir.
+          </p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

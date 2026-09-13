@@ -13,7 +13,7 @@ interface Anomaly {
   outlet: string;
   interviewer: string;
   visitDate: string;
-  visitTime: string;
+  visitTime: string | null;
   reasons: string[];
 }
 
@@ -53,7 +53,7 @@ function KualitasDataContent() {
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-slate-900">
-                  {a.outlet} — {formatDateWIB(a.visitDate)} {a.visitTime} WIB
+                  {a.outlet} — {formatDateWIB(a.visitDate)} {a.visitTime ? `${a.visitTime} WIB` : ""}
                 </p>
                 <span className="text-xs text-slate-500">{a.interviewer}</span>
               </div>

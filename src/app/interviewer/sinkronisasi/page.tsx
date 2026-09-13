@@ -68,7 +68,11 @@ export default function SinkronisasiPage() {
             <CardContent className="flex items-center justify-between p-3">
               <div>
                 <p className="text-sm font-medium text-slate-900">
-                  {e.type === "new_outlet" ? "Warung baru" : "Kunjungan ulang"}
+                  {e.type === "new_outlet"
+                    ? "Warung baru"
+                    : e.type === "revisit_weather"
+                      ? "Kunjungan ulang — cuaca"
+                      : "Kunjungan ulang — penjualan"}
                 </p>
                 <p className="text-xs text-slate-500">{new Date(e.createdAt).toLocaleString("id-ID")}</p>
                 {e.lastError && <p className="mt-1 text-xs text-red-600">{e.lastError}</p>}

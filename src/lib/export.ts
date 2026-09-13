@@ -51,36 +51,51 @@ export async function buildLongFormatRows(filters: MasterFilters) {
   const rows: Record<string, string | number>[] = [];
 
   for (const v of visits) {
-    const totalJam = v.weatherClearH + v.weatherCloudyH + v.weatherDrizzleH + v.weatherRainH;
+    const weatherFilled = v.weatherClearH !== null;
+    const totalJam = weatherFilled
+      ? v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!
+      : "";
+    const base = {
+      interviewer_username: v.interviewer.username,
+      interviewer_name: v.interviewer.fullName,
+      outlet_id: v.outletId,
+      warung: v.outlet.name,
+      pemilik: v.outlet.ownerName,
+      alamat: v.outlet.address,
+      telepon: v.outlet.phone,
+      jam_buka: v.outlet.openingTime ?? "",
+      jam_tutup: v.outlet.closingTime ?? "",
+      latitude: Number(v.outlet.latitude),
+      longitude: Number(v.outlet.longitude),
+      accuracy_m: v.outlet.accuracyM ? Number(v.outlet.accuracyM) : "",
+      visit_number: v.visitNumber,
+      tanggal_kunjungan: formatDateWIB(v.visitDate),
+      jam_kunjungan: v.visitTime ?? "",
+      jam_cerah: weatherFilled ? v.weatherClearH! : "",
+      jam_mendung: weatherFilled ? v.weatherCloudyH! : "",
+      jam_gerimis: weatherFilled ? v.weatherDrizzleH! : "",
+      jam_hujan: weatherFilled ? v.weatherRainH! : "",
+      total_jam: totalJam,
+      catatan: v.notes ?? "",
+      sumber_data: v.isOfflineCreated ? "offline" : "online",
+      created_at: formatDateWIB(v.createdAt),
+    };
+
+    // Sejak v2.5: cuaca & penjualan diisi lewat formulir terpisah, jadi kunjungan bisa saja
+    // belum punya baris penjualan sama sekali (mis. baru formulir cuaca yang disubmit). Tetap
+    // tulis satu baris (kolom merek kosong) agar data cuaca/jam kunjungan tidak hilang dari export.
+    if (v.sales.length === 0) {
+      rows.push({ ...base, merek: "", varian: "", sachet_terjual_hari_ini: "", is_merek_baru: "" });
+      continue;
+    }
+
     for (const s of v.sales) {
       rows.push({
-        interviewer_username: v.interviewer.username,
-        interviewer_name: v.interviewer.fullName,
-        outlet_id: v.outletId,
-        warung: v.outlet.name,
-        pemilik: v.outlet.ownerName,
-        alamat: v.outlet.address,
-        telepon: v.outlet.phone,
-        jam_buka: v.outlet.openingTime ?? "",
-        jam_tutup: v.outlet.closingTime ?? "",
-        latitude: Number(v.outlet.latitude),
-        longitude: Number(v.outlet.longitude),
-        accuracy_m: v.outlet.accuracyM ? Number(v.outlet.accuracyM) : "",
-        visit_number: v.visitNumber,
-        tanggal_kunjungan: formatDateWIB(v.visitDate),
-        jam_kunjungan: v.visitTime,
-        jam_cerah: v.weatherClearH,
-        jam_mendung: v.weatherCloudyH,
-        jam_gerimis: v.weatherDrizzleH,
-        jam_hujan: v.weatherRainH,
-        total_jam: totalJam,
+        ...base,
         merek: s.brandNameSnapshot,
         varian: s.variantNote ?? "",
         sachet_terjual_hari_ini: s.sachetsSold,
         is_merek_baru: s.isNewBrand ? "ya" : "tidak",
-        catatan: v.notes ?? "",
-        sumber_data: v.isOfflineCreated ? "offline" : "online",
-        created_at: formatDateWIB(v.createdAt),
       });
     }
   }
@@ -96,7 +111,10 @@ export async function buildWideFormatRows(filters: MasterFilters) {
 
   const rows: Record<string, string | number>[] = [];
   for (const v of visits) {
-    const totalJam = v.weatherClearH + v.weatherCloudyH + v.weatherDrizzleH + v.weatherRainH;
+    const weatherFilled = v.weatherClearH !== null;
+    const totalJam = weatherFilled
+      ? v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!
+      : "";
     const row: Record<string, string | number> = {
       interviewer_username: v.interviewer.username,
       interviewer_name: v.interviewer.fullName,
@@ -111,11 +129,11 @@ export async function buildWideFormatRows(filters: MasterFilters) {
       longitude: Number(v.outlet.longitude),
       visit_number: v.visitNumber,
       tanggal_kunjungan: formatDateWIB(v.visitDate),
-      jam_kunjungan: v.visitTime,
-      jam_cerah: v.weatherClearH,
-      jam_mendung: v.weatherCloudyH,
-      jam_gerimis: v.weatherDrizzleH,
-      jam_hujan: v.weatherRainH,
+      jam_kunjungan: v.visitTime ?? "",
+      jam_cerah: weatherFilled ? v.weatherClearH! : "",
+      jam_mendung: weatherFilled ? v.weatherCloudyH! : "",
+      jam_gerimis: weatherFilled ? v.weatherDrizzleH! : "",
+      jam_hujan: weatherFilled ? v.weatherRainH! : "",
       total_jam: totalJam,
       sumber_data: v.isOfflineCreated ? "offline" : "online",
     };

@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 
-export type SubmissionType = "new_outlet" | "revisit";
+export type SubmissionType = "new_outlet" | "revisit_weather" | "revisit_sales";
 export type SyncStatus = "pending" | "syncing" | "failed" | "synced";
 
 export interface QueuedSubmission {
@@ -121,7 +121,8 @@ export async function pruneSyncedOlderThan30Days() {
 
 const endpointByType: Record<SubmissionType, string> = {
   new_outlet: "/api/outlets",
-  revisit: "/api/visits",
+  revisit_weather: "/api/visits/weather",
+  revisit_sales: "/api/visits/sales",
 };
 
 /** FR-39/FR-40: kirim satu entri antrean ke server, idempotent via client_uuid. */

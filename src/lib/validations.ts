@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { isValidIndonesianPhone } from "./phone";
 import { hasDuplicateBrands, normalizeBrandName } from "./business-rules";
 
 // Sejak v1.5: total jam cuaca TIDAK wajib berjumlah/dibatasi 24 jam — interviewer bebas
@@ -21,17 +20,23 @@ export const saleRowSchema = z.object({
   isNewBrand: z.boolean().optional().default(false),
 });
 
+// Sejak v2.5: formulir penjualan merek berdiri sendiri (terpisah dari formulir cuaca), sehingga
+// baris merek boleh kosong di skema dasar ini (mis. dipakai Master saat kunjungan itu baru
+// terisi cuacanya saja). Formulir penjualan interviewer tetap mewajibkan minimal satu merek
+// lewat `salesArraySchemaRequired` di bawah.
 export const salesArraySchema = z
   .array(saleRowSchema)
-  .min(1, "Minimal satu merek wajib diisi")
   .refine((rows) => !hasDuplicateBrands(rows.map((r) => r.brandName)), {
     message: "Terdapat merek duplikat dalam kunjungan ini.",
   });
 
-export const phoneSchema = z
-  .string()
-  .trim()
-  .refine(isValidIndonesianPhone, { message: "Format nomor telepon Indonesia tidak valid (contoh: 0812xxxxxxx)." });
+export const salesArraySchemaRequired = salesArraySchema.refine((rows) => rows.length >= 1, {
+  message: "Minimal satu merek wajib diisi",
+});
+
+// Sejak v2.5: nomor telepon diisi bebas oleh interviewer — tidak lagi divalidasi mengikuti
+// format Indonesia (VL-03 lama), hanya wajib diisi (tidak boleh kosong).
+export const phoneSchema = z.string().trim().min(1, "Nomor telepon wajib diisi");
 
 export const coordinateSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90),
@@ -44,7 +49,10 @@ export const visitTimeSchema = z
   .string()
   .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Format jam kunjungan HH:mm tidak valid");
 
-export const newOutletVisitSchema = z
+// Sejak v2.5: kunjungan pertama HANYA mendata warung (registrasi) — tidak ada pertanyaan
+// cuaca maupun merek/sachet (itu baru muncul mulai kunjungan ke-2, lewat dua formulir terpisah
+// di bawah). `visitDate` tetap dicatat sebagai tanggal registrasi warung.
+export const outletRegistrationSchema = z
   .object({
     clientUuid: z.string().uuid(),
     // Outlet
@@ -57,18 +65,28 @@ export const newOutletVisitSchema = z
     openingTime: visitTimeSchema,
     closingTime: visitTimeSchema,
     outletNotes: z.string().trim().optional().nullable(),
-    // Visit
+    // Kunjungan pertama (registrasi)
     visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
-    visitTime: visitTimeSchema,
-    visitNotes: z.string().trim().optional().nullable(),
-    sales: salesArraySchema,
   })
-  .and(weatherSchema)
   .and(coordinateSchema);
 
-export type NewOutletVisitInput = z.infer<typeof newOutletVisitSchema>;
+export type OutletRegistrationInput = z.infer<typeof outletRegistrationSchema>;
 
-export const revisitSchema = z
+// Kunjungan ke-2 dst — Formulir Cuaca (berdiri sendiri, submit terpisah dari formulir penjualan).
+export const revisitWeatherSchema = z
+  .object({
+    outletId: z.string().uuid(),
+    clientUuid: z.string().uuid(),
+    confirmOverwriteVisitId: z.string().uuid().optional(),
+    visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  })
+  .and(weatherSchema);
+
+export type RevisitWeatherInput = z.infer<typeof revisitWeatherSchema>;
+
+// Kunjungan ke-2 dst — Formulir Merek & Penjualan (berdiri sendiri, submit terpisah dari cuaca).
+// Jam kunjungan dicatat di sini karena angka sachet ditafsirkan "hingga jam kunjungan" (FR-43).
+export const revisitSalesSchema = z
   .object({
     outletId: z.string().uuid(),
     clientUuid: z.string().uuid(),
@@ -76,16 +94,15 @@ export const revisitSchema = z
     visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
     visitTime: visitTimeSchema,
     visitNotes: z.string().trim().optional().nullable(),
-    sales: salesArraySchema,
+    sales: salesArraySchemaRequired,
     // Koordinat opsional (hanya jika "Perbarui Info Warung" dipakai)
     updateLocation: z.boolean().optional().default(false),
     latitude: z.coerce.number().min(-90).max(90).optional(),
     longitude: z.coerce.number().min(-180).max(180).optional(),
     accuracyM: z.coerce.number().min(0).optional().nullable(),
-  })
-  .and(weatherSchema);
+  });
 
-export type RevisitInput = z.infer<typeof revisitSchema>;
+export type RevisitSalesInput = z.infer<typeof revisitSalesSchema>;
 
 export const loginSchema = z.object({
   username: z.string().trim().min(1, "Username wajib diisi"),
@@ -117,7 +134,10 @@ export const masterEditOutletSchema = z.object({
 
 export type MasterEditOutletInput = z.infer<typeof masterEditOutletSchema>;
 
-// Master mengoreksi/menghapus baris kunjungan yang diinput interviewer.
+// Master mengoreksi/menghapus baris kunjungan yang diinput interviewer. Sales boleh kosong
+// (0 baris) karena sejak v2.5 sebuah kunjungan bisa baru terisi cuacanya saja (atau
+// sebaliknya) — Master tetap bisa membuka & memperbaiki bagian yang sudah ada tanpa
+// dipaksa melengkapi bagian yang belum diisi interviewer.
 export const masterEditVisitSchema = z
   .object({
     visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),

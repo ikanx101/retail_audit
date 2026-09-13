@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireSession } from "@/lib/api-auth";
-import { newOutletVisitSchema } from "@/lib/validations";
-import { createOutletWithFirstVisit, ServiceError } from "@/lib/outlet-service";
+import { outletRegistrationSchema } from "@/lib/validations";
+import { createOutletRegistration, ServiceError } from "@/lib/outlet-service";
 import { logger } from "@/lib/logger";
 
 // GET /api/outlets?mine=1&q= — daftar warung milik interviewer (FR-21).
@@ -48,19 +48,20 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// POST /api/outlets — kunjungan pertama: buat warung + kunjungan + penjualan (transaksi, FR-19).
+// POST /api/outlets — kunjungan pertama: buat warung + registrasi kunjungan (transaksi, FR-19).
+// Sejak v2.5: kunjungan pertama hanya mendata warung — tidak ada cuaca/merek di sini.
 export async function POST(req: NextRequest) {
   const { session, error } = await requireRole("INTERVIEWER");
   if (error) return error;
 
   const body = await req.json().catch(() => null);
-  const parsed = newOutletVisitSchema.safeParse(body);
+  const parsed = outletRegistrationSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Data tidak valid", issues: parsed.error.issues }, { status: 400 });
   }
 
   try {
-    const result = await createOutletWithFirstVisit(session!.user.id, parsed.data);
+    const result = await createOutletRegistration(session!.user.id, parsed.data);
     logger.info({ outletId: result.outletId, visitId: result.visitId }, "kunjungan pertama tersimpan");
     return NextResponse.json({ data: result }, { status: result.idempotent ? 200 : 201 });
   } catch (err: unknown) {

@@ -33,11 +33,11 @@ interface Visit {
   id: string;
   visitNumber: number;
   visitDate: string;
-  visitTime: string;
-  weatherClearH: number;
-  weatherCloudyH: number;
-  weatherDrizzleH: number;
-  weatherRainH: number;
+  visitTime: string | null;
+  weatherClearH: number | null;
+  weatherCloudyH: number | null;
+  weatherDrizzleH: number | null;
+  weatherRainH: number | null;
   sales: VisitSale[];
 }
 
@@ -332,7 +332,10 @@ export default function MasterWarungDetailPage() {
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Riwayat Kunjungan</h2>
         <div className="space-y-2">
           {data.visits.map((v) => {
-            const totalJam = v.weatherClearH + v.weatherCloudyH + v.weatherDrizzleH + v.weatherRainH;
+            const totalJam =
+              v.weatherClearH != null
+                ? v.weatherClearH + (v.weatherCloudyH ?? 0) + (v.weatherDrizzleH ?? 0) + (v.weatherRainH ?? 0)
+                : null;
             const totalSachet = v.sales.reduce((s, x) => s + x.sachetsSold, 0);
             return (
               <Card key={v.id}>
@@ -341,10 +344,14 @@ export default function MasterWarungDetailPage() {
                     <p className="text-sm font-medium text-slate-900">
                       Kunjungan #{v.visitNumber} — {formatDateWIB(v.visitDate)}
                     </p>
-                    <Badge variant="info">{v.visitTime} WIB</Badge>
+                    {v.visitTime && <Badge variant="info">{v.visitTime} WIB</Badge>}
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    Total jam cuaca tercatat: {totalJam} jam · Sachet terjual hari itu (hingga jam kunjungan): {totalSachet}
+                    {totalJam != null ? `Total jam cuaca tercatat: ${totalJam} jam` : "Cuaca belum diisi"}
+                    {" · "}
+                    {v.sales.length > 0
+                      ? `Sachet terjual hari itu (hingga jam kunjungan): ${totalSachet}`
+                      : "Penjualan belum diisi"}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {v.sales.map((s, i) => (

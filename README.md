@@ -1,6 +1,6 @@
 # Retail Audit Sachet
 
-**Versi saat ini: 1.5** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
+**Versi saat ini: 2.5** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
 dan di respons `GET /api/health` (`version`). Lihat [Riwayat Revisi](#riwayat-revisi) untuk
 catatan lengkap setiap perubahan sejak versi 1.0 dirilis.
 
@@ -33,6 +33,59 @@ penggunaan dan panduan deployment.
 
 Semua perubahan pada aplikasi ini dicatat di sini secara kronologis (terbaru di atas). Nomor
 versi mengikuti versi yang tampil di footer webapp dan `/api/health`.
+
+### v2.5 — 13 September 2026
+
+Perubahan alur pengisian formulir interviewer, atas permintaan pemilik produk:
+
+- **Kunjungan pertama kini hanya mendata warung.** Form **Warung Baru**
+  (`/interviewer/warung/baru`) tidak lagi menanyakan cuaca maupun merek/sachet — hanya data
+  warung (nama, pemilik, alamat, telepon, kota/kecamatan, jam buka/tutup, catatan) + lokasi GPS
+  + tanggal registrasi. Data cuaca dan penjualan merek baru mulai diisi pada kunjungan ke-2 dan
+  seterusnya.
+- **Kunjungan ke-2 dst kini dua formulir independen, bukan satu formulir gabungan.** Sebelumnya
+  cuaca dan penjualan merek/sachet diisi dalam satu form sekaligus (`/kunjungan/baru`). Sekarang
+  dipecah menjadi:
+  - **Formulir Cuaca** (`/interviewer/warung/[id]/kunjungan/cuaca` → `POST /api/visits/weather`)
+    — tanggal kunjungan + empat kondisi cuaca dalam jam.
+  - **Formulir Merek & Penjualan** (`/interviewer/warung/[id]/kunjungan/penjualan` →
+    `POST /api/visits/sales`) — tanggal & jam kunjungan, daftar merek + sachet terjual, catatan
+    kunjungan, dan opsi "Perbarui Info Warung" (koordinat).
+
+  Keduanya **disubmit terpisah** (masing-masing punya tombol simpan sendiri) dan bisa diisi di
+  waktu yang berbeda — satu-satunya field yang sama-sama muncul di kedua formulir adalah
+  **tanggal kunjungan**. Formulir mana pun yang disubmit lebih dulu untuk sebuah tanggal akan
+  membuat baris kunjungan baru (bernomor urut seperti biasa); formulir yang menyusul untuk
+  tanggal yang sama melengkapi baris yang sama, bukan membuat baris kedua (tetap menjaga VL-06:
+  satu warung, satu baris kunjungan per tanggal). Bila formulir yang sama disubmit dua kali untuk
+  tanggal yang sama (mis. cuaca disubmit ulang padahal sudah pernah diisi), sistem meminta
+  konfirmasi menimpa data yang sudah ada — sama seperti perilaku duplikat-tanggal sebelumnya.
+  - **Perubahan skema database:** `visits.visit_time` dan keempat kolom cuaca
+    (`weather_clear_h/cloudy_h/drizzle_h/rain_h`) menjadi *nullable* — `null` berarti formulir
+    terkait belum disubmit untuk kunjungan itu (lihat migrasi
+    `20260913153507_split_weather_sales_nullable`). Kolom generated `weather_total_h` yang sudah
+    tidak terpakai sejak v1.5 turut dibersihkan.
+  - **Dashboard & data quality Master mengikuti perubahan ini:** tabel Kunjungan
+    (`/master/kunjungan`), detail warung (`/master/warungs/[id]`), dan Panel Kualitas Data
+    (`/master/kualitas-data`) sekarang menampilkan badge **"Cuaca belum diisi"** /
+    **"Penjualan belum diisi"** untuk kunjungan yang baru terisi salah satu bagiannya —
+    dibedakan dari kunjungan pertama (registrasi warung) yang memang tidak pernah mengisi
+    keduanya. Export (long & wide format) tetap menyertakan kunjungan yang baru terisi cuacanya
+    saja (kolom merek/sachet dikosongkan, bukan baris yang hilang).
+  - Form edit Master (`/master/kunjungan/[id]`) tidak berubah (tetap satu form gabungan
+    cuaca+penjualan untuk mengoreksi data), namun sekarang boleh menyimpan tanpa baris merek
+    (untuk kunjungan yang baru punya data cuaca) dan menampilkan peringatan bila kunjungan yang
+    dibuka belum lengkap.
+- **Nomor telepon warung kini diisi bebas, tidak lagi divalidasi format Indonesia.**
+  Sebelumnya nomor telepon pemilik warung (form Warung Baru & "Edit Info Warung" Master) wajib
+  mengikuti format Indonesia (08xx/+628xx, 9–15 digit) dan dinormalisasi ke `+62xxxxxxxxxx` saat
+  disimpan. Interviewer di lapangan bisa saja bertemu nomor yang tidak sesuai pola itu (nomor
+  lama, nomor luar negeri, atau pemilik yang hanya punya nomor WhatsApp dengan format berbeda),
+  sehingga validasi ini dilonggarkan sepenuhnya: field tetap wajib diisi (tidak boleh kosong),
+  tapi tidak ada lagi pengecekan format atau normalisasi — nomor disimpan persis seperti yang
+  diketik. Panel Kualitas Data (`/master/kualitas-data`) tidak lagi menandai "nomor telepon tidak
+  valid" sebagai anomali. Modul `src/lib/phone.ts` (validasi & normalisasi format Indonesia) sudah
+  tidak dipakai di mana pun dan dihapus.
 
 ### v1.5 — 10 September 2026
 
@@ -279,8 +332,8 @@ Buka [http://localhost:3000](http://localhost:3000). Anda akan diarahkan ke `/lo
    Aksi yang sama juga tersedia di riwayat kunjungan pada halaman detail warung. Setiap
    edit/hapus oleh Master tercatat di `audit_trail` (siapa, kapan, nilai sebelum/sesudah).
 7. **Kualitas Data** (`/master/kualitas-data`) — daftar kunjungan dengan anomali: total jam
-   cuaca ≠ 24, penjualan 0 sachet di semua merek, akurasi GPS buruk, merek duplikat, nomor
-   telepon tidak valid, atau total penjualan > 500 sachet dalam satu kunjungan (kemungkinan
+   cuaca > 24, penjualan 0 sachet di semua merek, akurasi GPS buruk, merek duplikat, cuaca/
+   penjualan belum diisi, atau total penjualan > 500 sachet dalam satu kunjungan (kemungkinan
    input kumulatif, bukan harian). Tindak lanjuti temuan ini dengan interviewer terkait.
 8. **Export** (`/master/export`) — unduh data dalam format CSV atau XLSX, layout *long* (satu
    baris per kombinasi kunjungan × merek, cocok untuk analisis) atau *wide* (satu baris per
@@ -294,21 +347,31 @@ Buka [http://localhost:3000](http://localhost:3000). Anda akan diarahkan ke `/lo
 ### Sebagai Interviewer
 
 1. **Login** dengan akun yang diberikan Master Researcher.
-2. **Warung Baru** (kunjungan pertama) — isi data warung (nama, pemilik, alamat, telepon, **jam
-   buka & jam tutup warung**), ambil lokasi GPS dengan tombol "📍 Ambil Lokasi" (atau geser pin di
-   peta / ketuk lokasi baru untuk koreksi manual), isi tanggal & jam kunjungan, kondisi cuaca
-   dalam jam (isi sesuai yang benar-benar teramati — **tidak wajib berjumlah 24 jam**), dan
-   daftar merek + jumlah sachet **terjual hari itu saja**. Minimal satu merek wajib diisi.
-3. **Kunjungan Ulang** — pilih warung dari daftar warung yang pernah Anda input (bisa dicari).
-   Merek dari kunjungan sebelumnya otomatis dimuat — konfirmasi ulang angkanya (boleh 0 bila
-   tidak ada penjualan hari itu). Anda bisa menambah merek baru bila ada. Centang "Perbarui
-   koordinat" bila lokasi warung perlu dikoreksi.
+2. **Warung Baru** (kunjungan pertama, `/interviewer/warung/baru`) — **hanya mendata warung**:
+   nama, pemilik, alamat, telepon, kota/kecamatan, **jam buka & jam tutup warung**, catatan, lokasi
+   GPS (tombol "📍 Ambil Lokasi" atau geser pin di peta / ketuk lokasi baru untuk koreksi manual),
+   dan tanggal registrasi. **Tidak ada pertanyaan cuaca atau merek/sachet di sini** — itu baru
+   muncul mulai kunjungan ke-2.
+3. **Kunjungan Ulang** — pilih warung dari daftar warung yang pernah Anda input (bisa dicari), lalu
+   pilih salah satu dari dua formulir terpisah di halaman detail warung:
+   - **🌦️ Isi Data Cuaca** — tanggal kunjungan + kondisi cuaca dalam jam (isi sesuai yang benar-benar
+     teramati — **tidak wajib berjumlah 24 jam**).
+   - **🥤 Isi Data Penjualan** — tanggal & jam kunjungan, daftar merek + jumlah sachet **terjual
+     hari itu saja** (merek dari kunjungan sebelumnya otomatis dimuat — konfirmasi ulang
+     angkanya, boleh 0 bila tidak ada penjualan hari itu; Anda bisa menambah merek baru), catatan
+     kunjungan, dan opsi "Perbarui koordinat" bila lokasi warung perlu dikoreksi.
+
+   Kedua formulir **disubmit terpisah** dan boleh diisi kapan saja/dalam urutan apa pun — tidak
+   perlu keduanya diisi sekaligus dalam satu sesi. Satu-satunya kolom yang sama-sama muncul di
+   keduanya adalah **tanggal kunjungan**; formulir mana pun yang Anda simpan lebih dulu untuk
+   tanggal tertentu akan mencatat kunjungan itu, dan formulir yang menyusul (untuk tanggal yang
+   sama) akan melengkapinya, bukan membuat data kunjungan baru.
 4. Sistem akan meminta **konfirmasi tambahan** (bukan menolak) bila: jam kunjungan di luar
    04:00–23:00, total penjualan satu kunjungan > 500 sachet, atau akurasi GPS > 50 m — ini untuk
    membantu Anda menghindari salah input, bukan untuk memblokir pekerjaan Anda.
-5. Bila warung sudah punya kunjungan pada tanggal yang sama, sistem akan menawarkan untuk
-   **memperbarui** kunjungan tersebut alih-alih membuat data baru (satu warung = satu data per
-   hari).
+5. Bila salah satu formulir (cuaca **atau** penjualan) sudah pernah diisi untuk tanggal yang sama,
+   sistem akan menawarkan untuk **memperbarui** data itu alih-alih membuat data baru (satu warung =
+   satu baris kunjungan per hari, meski cuaca & penjualannya diisi di waktu yang berbeda).
 6. **Status Sinkronisasi** (`/interviewer/sinkronisasi`) — pantau data yang masih menunggu
    dikirim (misalnya karena sinyal lemah/offline saat submit). Data tersimpan otomatis secara
    lokal dan akan tersinkron sendiri saat koneksi kembali; Anda juga bisa menekan "Kirim Ulang".
@@ -435,7 +498,7 @@ dibedakan: **database** atau **aplikasi**. Contoh respons:
 ```json
 {
   "status": "ok",
-  "version": "1.0",
+  "version": "2.5",
   "buildCommit": "a1b2c3d",
   "time": "2026-09-10T12:50:51.239Z",
   "failing": [],
@@ -496,13 +559,13 @@ railway.json               # konfigurasi build/start/healthcheck Railway
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # TypeScript strict
-npm run test         # Vitest — unit test aturan bisnis (VL-01..VL-11) & validasi telepon
+npm run test         # Vitest — unit test aturan bisnis (VL-01..VL-11)
 npx prisma validate  # validasi skema Prisma
 npm run build         # build produksi (memastikan semua route valid)
 ```
 
-Unit test saat ini berfokus pada fungsi aturan bisnis murni di `src/lib/business-rules.ts` dan
-`src/lib/phone.ts` (mudah diuji tanpa database). Endpoint API telah diverifikasi manual end-to-end
+Unit test saat ini berfokus pada fungsi aturan bisnis murni di `src/lib/business-rules.ts`
+(mudah diuji tanpa database). Endpoint API telah diverifikasi manual end-to-end
 (login, buat warung + kunjungan pertama, kunjungan ulang, deteksi duplikat tanggal, idempotency
 `client_uuid`, RBAC, export CSV/XLSX) terhadap PostgreSQL sungguhan selama pengembangan.
 

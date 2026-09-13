@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireRole } from "@/lib/api-auth";
 import { masterEditOutletSchema } from "@/lib/validations";
-import { normalizePhone } from "@/lib/phone";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireSession();
@@ -30,9 +29,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Anda tidak memiliki akses ke warung ini" }, { status: 403 });
   }
 
-  const latestVisit = outlet.visits[0];
-  const prefillBrands = latestVisit
-    ? latestVisit.sales.map((s) => ({
+  // Prefill merek (FR-23) diambil dari kunjungan TERAKHIR yang sudah punya data penjualan —
+  // bukan sekadar kunjungan terakhir, karena sejak v2.5 kunjungan terbaru bisa saja baru
+  // terisi cuacanya saja (formulir penjualan belum disubmit).
+  const latestVisitWithSales = outlet.visits.find((v) => v.sales.length > 0);
+  const prefillBrands = latestVisitWithSales
+    ? latestVisitWithSales.sales.map((s) => ({
         brandId: s.brandId,
         brandName: s.brandNameSnapshot,
         variantNote: s.variantNote,
@@ -42,6 +44,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json({
     data: {
       ...outlet,
+      visits: outlet.visits.map((v) => ({
+        ...v,
+        weatherFilled: v.weatherClearH !== null,
+        salesFilled: v.sales.length > 0,
+      })),
       prefillBrands,
       nextVisitNumber: outlet.visits.length + 1,
     },
@@ -72,7 +79,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       name: input.name,
       ownerName: input.ownerName,
       address: input.address,
-      phone: normalizePhone(input.phone),
+      phone: input.phone,
       city: input.city || null,
       district: input.district || null,
       openingTime: input.openingTime || null,
@@ -102,7 +109,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         latitude: existing.latitude.toString(),
         longitude: existing.longitude.toString(),
       },
-      afterJson: { ...input, phone: normalizePhone(input.phone) },
+      afterJson: { ...input },
     },
   });
 

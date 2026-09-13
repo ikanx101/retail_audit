@@ -10,10 +10,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { LocationPickerLazy } from "@/components/forms/location-picker-lazy";
-import { WeatherHoursEditor, type WeatherState } from "@/components/forms/weather-hours-editor";
 import { SalesRowsEditor, type SaleRowState } from "@/components/forms/sales-rows-editor";
 import { useGeolocation } from "@/lib/use-geolocation";
-import { revisitSchema } from "@/lib/validations";
+import { revisitSalesSchema } from "@/lib/validations";
 import { isGpsAccuracyPoor, isTotalSachetsLarge, isVisitTimeUnusual } from "@/lib/business-rules";
 import { todayWIB, nowTimeWIB } from "@/lib/timezone";
 import { saveDraft, loadDraft, clearDraft, enqueueSubmission } from "@/lib/offline-db";
@@ -26,12 +25,16 @@ interface OutletDetail {
   prefillBrands: { brandId: string | null; brandName: string; variantNote: string | null }[];
 }
 
-export default function KunjunganUlangPage() {
+// Kunjungan ke-2 dst — Formulir Merek & Penjualan (v2.5). Berdiri sendiri, terpisah dari
+// formulir Cuaca (lihat /kunjungan/cuaca). Satu-satunya field yang sama di kedua formulir
+// adalah tanggal kunjungan. Jam kunjungan dicatat di sini karena angka sachet ditafsirkan
+// "hingga jam kunjungan" (FR-43).
+export default function KunjunganPenjualanPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { toast } = useToast();
   const geo = useGeolocation();
-  const draftKey = `revisit:${params.id}`;
+  const draftKey = `revisit_sales:${params.id}`;
 
   const { data: brandOptions } = useQuery({
     queryKey: ["brands"],
@@ -57,12 +60,6 @@ export default function KunjunganUlangPage() {
   const [visitDate, setVisitDate] = React.useState(todayWIB());
   const [visitTime, setVisitTime] = React.useState(nowTimeWIB());
   const [visitNotes, setVisitNotes] = React.useState("");
-  const [weather, setWeather] = React.useState<WeatherState>({
-    weatherClearH: "0",
-    weatherCloudyH: "0",
-    weatherDrizzleH: "0",
-    weatherRainH: "0",
-  });
   const [sales, setSales] = React.useState<SaleRowState[]>([]);
   const [updateLocation, setUpdateLocation] = React.useState(false);
   const [lat, setLat] = React.useState(0);
@@ -86,7 +83,6 @@ export default function KunjunganUlangPage() {
           setVisitDate((d.visitDate as string) ?? todayWIB());
           setVisitTime((d.visitTime as string) ?? nowTimeWIB());
           setVisitNotes((d.visitNotes as string) ?? "");
-          if (d.weather) setWeather(d.weather as WeatherState);
           if (Array.isArray(d.sales) && d.sales.length > 0) {
             setSales(d.sales as SaleRowState[]);
             return;
@@ -119,11 +115,11 @@ export default function KunjunganUlangPage() {
 
   React.useEffect(() => {
     const timeout = setTimeout(() => {
-      saveDraft(draftKey, { visitDate, visitTime, visitNotes, weather, sales });
+      saveDraft(draftKey, { visitDate, visitTime, visitNotes, sales });
     }, 500);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visitDate, visitTime, visitNotes, weather, sales]);
+  }, [visitDate, visitTime, visitNotes, sales]);
 
   function buildPayload(overwriteId?: string) {
     return {
@@ -133,10 +129,6 @@ export default function KunjunganUlangPage() {
       visitDate,
       visitTime,
       visitNotes: visitNotes || null,
-      weatherClearH: Number(weather.weatherClearH || 0),
-      weatherCloudyH: Number(weather.weatherCloudyH || 0),
-      weatherDrizzleH: Number(weather.weatherDrizzleH || 0),
-      weatherRainH: Number(weather.weatherRainH || 0),
       updateLocation,
       latitude: updateLocation ? lat : undefined,
       longitude: updateLocation ? lng : undefined,
@@ -157,23 +149,23 @@ export default function KunjunganUlangPage() {
     const payload = buildPayload(overwriteId);
     setSubmitting(true);
     try {
-      const res = await fetch("/api/visits", {
+      const res = await fetch("/api/visits/sales", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (res.ok) {
         await clearDraft(draftKey);
-        toast({ title: "Kunjungan ulang tersimpan", kind: "success" });
+        toast({ title: "Data penjualan tersimpan", kind: "success" });
         router.push(`/interviewer/warung/${params.id}`);
         return;
       }
       if (res.status === 409) {
         const body = await res.json().catch(() => ({}));
-        if (body?.error === "DUPLICATE_DATE" && body?.existingVisitId) {
+        if (body?.error === "DUPLICATE_SALES" && body?.existingVisitId) {
           setConfirmState({
             open: true,
-            message: "Sudah ada kunjungan pada tanggal ini untuk warung ini. Perbarui kunjungan yang ada?",
+            message: "Sudah ada data penjualan pada tanggal ini untuk warung ini. Perbarui data yang ada?",
             onConfirm: () => {
               setConfirmState({ open: false, message: "" });
               actuallySubmit(body.existingVisitId);
@@ -185,7 +177,7 @@ export default function KunjunganUlangPage() {
       const body = await res.json().catch(() => ({}));
       toast({ title: "Gagal menyimpan", description: body?.message ?? body?.error, kind: "error" });
     } catch {
-      await enqueueSubmission(clientUuid, "revisit", payload);
+      await enqueueSubmission(clientUuid, "revisit_sales", payload);
       await clearDraft(draftKey);
       toast({
         title: "Tersimpan secara offline",
@@ -201,7 +193,7 @@ export default function KunjunganUlangPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const payload = buildPayload();
-    const parsed = revisitSchema.safeParse(payload);
+    const parsed = revisitSalesSchema.safeParse(payload);
     if (!parsed.success) {
       toast({ title: "Periksa kembali isian Anda", description: parsed.error.issues[0]?.message, kind: "error" });
       return;
@@ -265,7 +257,7 @@ export default function KunjunganUlangPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <h1 className="text-lg font-semibold text-slate-900">Kunjungan Ulang — {outlet.name}</h1>
+      <h1 className="text-lg font-semibold text-slate-900">Formulir Merek & Penjualan — {outlet.name}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
@@ -284,13 +276,6 @@ export default function KunjunganUlangPage() {
             <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
               Catat penjualan HARI INI saja (hingga jam Anda sekarang), bukan total kumulatif.
             </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="space-y-3 p-4">
-            <h2 className="text-sm font-semibold text-slate-700">Kondisi Cuaca (dalam jam)</h2>
-            <WeatherHoursEditor value={weather} onChange={setWeather} />
           </CardContent>
         </Card>
 
@@ -352,7 +337,7 @@ export default function KunjunganUlangPage() {
         </Card>
 
         <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-          {submitting ? "Menyimpan..." : "Simpan Kunjungan Ulang"}
+          {submitting ? "Menyimpan..." : "Simpan Data Penjualan"}
         </Button>
       </form>
 

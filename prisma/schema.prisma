@@ -108,11 +108,16 @@ model Visit {
   interviewer      User     @relation("VisitInterviewer", fields: [interviewerId], references: [id])
   visitNumber      Int      @map("visit_number")
   visitDate        DateTime @map("visit_date") @db.Date
-  visitTime        String   @map("visit_time") // HH:mm WIB
-  weatherClearH    Int      @default(0) @map("weather_clear_h")
-  weatherCloudyH   Int      @default(0) @map("weather_cloudy_h")
-  weatherDrizzleH  Int      @default(0) @map("weather_drizzle_h")
-  weatherRainH     Int      @default(0) @map("weather_rain_h")
+  // Sejak v2.5: kunjungan ke-2 dst diisi lewat dua formulir independen (cuaca & penjualan
+  // merek), masing-masing bisa disubmit terpisah. `visitTime` diisi oleh formulir penjualan
+  // (karena angka sachet ditafsirkan "hingga jam kunjungan"); null berarti formulir penjualan
+  // belum diisi. Field cuaca null berarti formulir cuaca belum diisi. Kunjungan pertama
+  // (registrasi warung) tidak pernah mengisi salah satunya.
+  visitTime        String?  @map("visit_time") // HH:mm WIB, null = formulir penjualan belum diisi
+  weatherClearH    Int?     @map("weather_clear_h")
+  weatherCloudyH   Int?     @map("weather_cloudy_h")
+  weatherDrizzleH  Int?     @map("weather_drizzle_h")
+  weatherRainH     Int?     @map("weather_rain_h")
   latitude         Decimal? @map("latitude") @db.Decimal(9, 6)
   longitude        Decimal? @map("longitude") @db.Decimal(9, 6)
   accuracyM        Decimal? @map("accuracy_m") @db.Decimal(10, 2)

@@ -102,7 +102,7 @@ Dua peran: `MASTER_RESEARCHER` dan `INTERVIEWER`.
    - Nama pemilik (wajib)
    - Alamat (wajib, teks bebas)
    - Koordinat long/lat dari GPS gadget (wajib, dapat dikoreksi manual)
-   - Nomor telepon pemilik (wajib, validasi format Indonesia)
+   - Nomor telepon pemilik (wajib, diisi bebas — tidak divalidasi mengikuti format Indonesia)
    - Tanggal kunjungan (wajib, default hari ini)
    - Jam kunjungan (wajib, default jam perangkat)
    - Kondisi cuaca hari itu dalam satuan jam: cerah, mendung, gerimis, hujan
@@ -153,7 +153,9 @@ Dua peran: `MASTER_RESEARCHER` dan `INTERVIEWER`.
   - Jika akurasi > 50 m, tampilkan peringatan dan minta ulangi.
   - Jika izin lokasi ditolak, sediakan input manual lat/long + catatan alasan.
   - Tampilkan pratinjau peta (Leaflet + OpenStreetMap) agar interviewer bisa menggeser pin.
-- **FR-15** **Nomor telepon:** validasi format Indonesia (08xx / +628xx), panjang 9–15 digit; simpan dalam format ternormalisasi.
+- **FR-15** **Nomor telepon:** wajib diisi, tetapi **diisi bebas** — sejak v2.5 tidak lagi divalidasi
+  mengikuti format Indonesia (08xx/+628xx) maupun dinormalisasi; disimpan apa adanya sebagaimana
+  diketik interviewer.
 - **FR-16** **Tanggal kunjungan:** default hari ini (WIB), tidak boleh tanggal masa depan, tidak boleh lebih dari 30 hari ke belakang (peringatan lunak).
 - **FR-17** **Cuaca per jam:** empat field angka bulat 0–24 untuk cerah, mendung, gerimis, hujan.
   - Total ≤ 24 jam → error jika melebihi.
@@ -191,7 +193,9 @@ Dua peran: `MASTER_RESEARCHER` dan `INTERVIEWER`.
 - **FR-31** Filter: rentang tanggal, interviewer, warung, merek, kota/kecamatan (jika diisi).
 - **FR-32** Peta sebaran warung (Leaflet) dengan marker per warung; klik marker → detail kunjungan.
 - **FR-33** Drill-down: halaman detail warung menampilkan riwayat kunjungan dan tren penjualan per merek.
-- **FR-34** Panel kualitas data: daftar kunjungan dengan anomali — total jam cuaca ≠ 24, penjualan 0 pada semua merek, koordinat akurasi buruk, merek duplikat, telepon tidak valid.
+- **FR-34** Panel kualitas data: daftar kunjungan dengan anomali — total jam cuaca > 24, penjualan 0
+  pada semua merek, koordinat akurasi buruk, merek duplikat, cuaca/penjualan belum diisi (sejak
+  v2.5). *(Nomor telepon tidak lagi diperiksa di sini sejak v2.5 — lihat FR-15.)*
 - **FR-35** Unduh data (lihat bagian 14) dalam format CSV dan XLSX.
 
 ### 5.6 Ketersimpanan & Offline
@@ -395,7 +399,8 @@ Dua peran: `MASTER_RESEARCHER` dan `INTERVIEWER`.
 
 - **VL-01** Total jam cuaca ≤ 24; > 24 = error; < 24 = tersimpan dengan flag "belum lengkap".
 - **VL-02** `sachets_sold` integer 0–100.000; nilai > 5.000 per merek per kunjungan memicu konfirmasi "angka tidak wajar, yakin?".
-- **VL-03** Telepon: regex Indonesia (opsional `+62`), panjang 9–15 digit.
+- **VL-03** Telepon: wajib diisi (tidak boleh kosong); **tidak ada validasi format** sejak v2.5 —
+  interviewer boleh mengisi bebas.
 - **VL-04** Koordinat: latitude −90..90, longitude −180..180; peringatan jika berada di luar bounding box Indonesia.
 - **VL-05** Tanggal kunjungan ≤ hari ini (WIB) dan ≥ 2026-01-01.
 - **VL-06** Satu kunjungan per warung per tanggal (unik di DB).
