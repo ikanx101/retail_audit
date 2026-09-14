@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,6 +36,7 @@ export default function MasterEditKunjunganPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [visitDate, setVisitDate] = React.useState("");
   const [visitTime, setVisitTime] = React.useState("");
@@ -133,6 +134,9 @@ export default function MasterEditKunjunganPage() {
       });
       if (res.ok) {
         toast({ title: "Perubahan tersimpan", kind: "success" });
+        await queryClient.invalidateQueries({ queryKey: ["master-visits"] });
+        await queryClient.invalidateQueries({ queryKey: ["master-anomalies"] });
+        if (visit) await queryClient.invalidateQueries({ queryKey: ["outlet", visit.outlet.id] });
         router.push("/master/kunjungan");
         return;
       }
@@ -187,6 +191,9 @@ export default function MasterEditKunjunganPage() {
       const res = await fetch(`/api/master/visits/${params.id}`, { method: "DELETE" });
       if (res.ok) {
         toast({ title: "Kunjungan dihapus", kind: "success" });
+        await queryClient.invalidateQueries({ queryKey: ["master-visits"] });
+        await queryClient.invalidateQueries({ queryKey: ["master-anomalies"] });
+        if (visit) await queryClient.invalidateQueries({ queryKey: ["outlet", visit.outlet.id] });
         router.push("/master/kunjungan");
         return;
       }
