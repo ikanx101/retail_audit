@@ -149,6 +149,10 @@ export const masterEditVisitSchema = z
 
 export type MasterEditVisitInput = z.infer<typeof masterEditVisitSchema>;
 
+export const resetRisetSchema = z.object({
+  password: z.string().min(1, "Password wajib diisi"),
+});
+
 export const brandSchema = z.object({
   name: z.string().trim().min(1, "Nama merek wajib diisi"),
   variant: z.string().trim().optional().nullable(),

@@ -12,6 +12,7 @@ const links = [
   { href: "/master/merek", label: "Merek" },
   { href: "/master/kualitas-data", label: "Kualitas Data" },
   { href: "/master/export", label: "Export" },
+  { href: "/master/reset-riset", label: "Reset Riset" },
 ];
 
 export function MasterNav() {
