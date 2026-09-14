@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
 import { parseMasterFilters, buildVisitWhere } from "@/lib/master-filters";
+import { roundHours } from "@/lib/utils";
 
 // GET /api/master/visits — tabel kunjungan dengan pagination, sorting, pencarian (FR-30, FR-31).
 export async function GET(req: NextRequest) {
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
             cloudy: v.weatherCloudyH!,
             drizzle: v.weatherDrizzleH!,
             rain: v.weatherRainH!,
-            total: v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!,
+            total: roundHours(v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!),
           }
         : null,
       salesFilled: v.sales.length > 0,

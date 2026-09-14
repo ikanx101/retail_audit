@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { buttonClassNames } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDateWIB } from "@/lib/timezone";
+import { roundHours } from "@/lib/utils";
 
 interface VisitSale {
   brandNameSnapshot: string;
@@ -92,7 +93,7 @@ export default function WarungDetailPage() {
           {data.visits.map((v) => {
             const totalJam =
               v.weatherClearH != null
-                ? v.weatherClearH + (v.weatherCloudyH ?? 0) + (v.weatherDrizzleH ?? 0) + (v.weatherRainH ?? 0)
+                ? roundHours(v.weatherClearH + (v.weatherCloudyH ?? 0) + (v.weatherDrizzleH ?? 0) + (v.weatherRainH ?? 0))
                 : null;
             const totalSachet = v.sales.reduce((s, x) => s + x.sachetsSold, 0);
             // Kunjungan #1 (registrasi) hanya tampil sebagai "registrasi tanpa data" jika

@@ -13,6 +13,7 @@ import { WeatherHoursEditor, type WeatherState } from "@/components/forms/weathe
 import { revisitWeatherSchema } from "@/lib/validations";
 import { todayWIB } from "@/lib/timezone";
 import { saveDraft, loadDraft, clearDraft, enqueueSubmission } from "@/lib/offline-db";
+import { parseDecimalInput } from "@/lib/utils";
 
 interface OutletDetail {
   id: string;
@@ -82,10 +83,10 @@ export default function KunjunganCuacaPage() {
       clientUuid,
       confirmOverwriteVisitId: overwriteId,
       visitDate,
-      weatherClearH: Number(weather.weatherClearH || 0),
-      weatherCloudyH: Number(weather.weatherCloudyH || 0),
-      weatherDrizzleH: Number(weather.weatherDrizzleH || 0),
-      weatherRainH: Number(weather.weatherRainH || 0),
+      weatherClearH: parseDecimalInput(weather.weatherClearH || "0"),
+      weatherCloudyH: parseDecimalInput(weather.weatherCloudyH || "0"),
+      weatherDrizzleH: parseDecimalInput(weather.weatherDrizzleH || "0"),
+      weatherRainH: parseDecimalInput(weather.weatherRainH || "0"),
     };
   }
 

@@ -21,8 +21,10 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { LocationPickerLazy } from "@/components/forms/location-picker-lazy";
+import { TimeInput24 } from "@/components/forms/time-input-24";
 import { masterEditOutletSchema } from "@/lib/validations";
 import { formatDateWIB } from "@/lib/timezone";
+import { roundHours } from "@/lib/utils";
 
 interface VisitSale {
   brandNameSnapshot: string;
@@ -262,20 +264,18 @@ export default function MasterWarungDetailPage() {
                 </div>
                 <div>
                   <Label htmlFor="e-opening">Jam buka warung</Label>
-                  <Input
+                  <TimeInput24
                     id="e-opening"
-                    type="time"
                     value={form.openingTime}
-                    onChange={(e) => setForm({ ...form, openingTime: e.target.value })}
+                    onChange={(v) => setForm({ ...form, openingTime: v })}
                   />
                 </div>
                 <div>
                   <Label htmlFor="e-closing">Jam tutup warung</Label>
-                  <Input
+                  <TimeInput24
                     id="e-closing"
-                    type="time"
                     value={form.closingTime}
-                    onChange={(e) => setForm({ ...form, closingTime: e.target.value })}
+                    onChange={(v) => setForm({ ...form, closingTime: v })}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -334,7 +334,7 @@ export default function MasterWarungDetailPage() {
           {data.visits.map((v) => {
             const totalJam =
               v.weatherClearH != null
-                ? v.weatherClearH + (v.weatherCloudyH ?? 0) + (v.weatherDrizzleH ?? 0) + (v.weatherRainH ?? 0)
+                ? roundHours(v.weatherClearH + (v.weatherCloudyH ?? 0) + (v.weatherDrizzleH ?? 0) + (v.weatherRainH ?? 0))
                 : null;
             const totalSachet = v.sales.reduce((s, x) => s + x.sachetsSold, 0);
             return (

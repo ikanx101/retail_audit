@@ -114,10 +114,11 @@ model Visit {
   // belum diisi. Field cuaca null berarti formulir cuaca belum diisi. Kunjungan pertama
   // (registrasi warung) tidak pernah mengisi salah satunya.
   visitTime        String?  @map("visit_time") // HH:mm WIB, null = formulir penjualan belum diisi
-  weatherClearH    Int?     @map("weather_clear_h")
-  weatherCloudyH   Int?     @map("weather_cloudy_h")
-  weatherDrizzleH  Int?     @map("weather_drizzle_h")
-  weatherRainH     Int?     @map("weather_rain_h")
+  // Sejak v2.6: menerima pecahan jam (mis. 1,5 jam) — disimpan sebagai Float, bukan Int.
+  weatherClearH    Float?   @map("weather_clear_h")
+  weatherCloudyH   Float?   @map("weather_cloudy_h")
+  weatherDrizzleH  Float?   @map("weather_drizzle_h")
+  weatherRainH     Float?   @map("weather_rain_h")
   latitude         Decimal? @map("latitude") @db.Decimal(9, 6)
   longitude        Decimal? @map("longitude") @db.Decimal(9, 6)
   accuracyM        Decimal? @map("accuracy_m") @db.Decimal(10, 2)

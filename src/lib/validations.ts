@@ -4,12 +4,13 @@ import { hasDuplicateBrands, normalizeBrandName } from "./business-rules";
 // Sejak v1.5: total jam cuaca TIDAK wajib berjumlah/dibatasi 24 jam — interviewer bebas
 // mengisi kondisi cuaca yang benar-benar teramati tanpa harus menutupi seluruh hari. Batas
 // per-kondisi (0–24 jam masing-masing) tetap berlaku karena satu kondisi tidak mungkin lebih
-// dari 24 jam dalam sehari.
+// dari 24 jam dalam sehari. Sejak v2.6: pecahan jam (mis. 1,5 jam) diperbolehkan — angka
+// koma sudah dikonversi ke titik di sisi UI (lihat parseDecimalInput) sebelum sampai di sini.
 export const weatherSchema = z.object({
-  weatherClearH: z.coerce.number().int().min(0).max(24),
-  weatherCloudyH: z.coerce.number().int().min(0).max(24),
-  weatherDrizzleH: z.coerce.number().int().min(0).max(24),
-  weatherRainH: z.coerce.number().int().min(0).max(24),
+  weatherClearH: z.coerce.number().min(0).max(24),
+  weatherCloudyH: z.coerce.number().min(0).max(24),
+  weatherDrizzleH: z.coerce.number().min(0).max(24),
+  weatherRainH: z.coerce.number().min(0).max(24),
 });
 
 export const saleRowSchema = z.object({

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
 import { parseMasterFilters, buildVisitWhere } from "@/lib/master-filters";
 import { isGpsAccuracyPoor } from "@/lib/business-rules";
+import { roundHours } from "@/lib/utils";
 
 // GET /api/master/anomalies — panel kualitas data (FR-34).
 export async function GET(req: NextRequest) {
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
       // Sejak v1.5: total jam cuaca tidak wajib 24 jam (interviewer bebas mengisi sesuai kondisi
       // yang teramati). Hanya ditandai bila total melebihi 24 jam — itu tetap mustahil untuk satu hari.
       if (weatherFilled) {
-        const totalWeather = v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!;
+        const totalWeather = roundHours(v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!);
         if (totalWeather > 24) reasons.push(`Total jam cuaca = ${totalWeather} (melebihi 24 jam, periksa kembali)`);
       }
 

@@ -14,6 +14,7 @@ import { SalesRowsEditor, type SaleRowState } from "@/components/forms/sales-row
 import { masterEditVisitSchema } from "@/lib/validations";
 import { isTotalSachetsLarge, isVisitTimeUnusual } from "@/lib/business-rules";
 import { formatDateWIB } from "@/lib/timezone";
+import { parseDecimalInput } from "@/lib/utils";
 
 interface VisitDetail {
   id: string;
@@ -102,10 +103,10 @@ export default function MasterEditKunjunganPage() {
       visitDate,
       visitTime,
       notes: notes || null,
-      weatherClearH: Number(weather.weatherClearH || 0),
-      weatherCloudyH: Number(weather.weatherCloudyH || 0),
-      weatherDrizzleH: Number(weather.weatherDrizzleH || 0),
-      weatherRainH: Number(weather.weatherRainH || 0),
+      weatherClearH: parseDecimalInput(weather.weatherClearH || "0"),
+      weatherCloudyH: parseDecimalInput(weather.weatherCloudyH || "0"),
+      weatherDrizzleH: parseDecimalInput(weather.weatherDrizzleH || "0"),
+      weatherRainH: parseDecimalInput(weather.weatherRainH || "0"),
       sales: sales
         .filter((s) => s.brandName.trim() !== "")
         .map((s) => ({

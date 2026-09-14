@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { MasterFilters } from "@/lib/master-filters";
 import { buildVisitWhere } from "@/lib/master-filters";
 import { formatDateWIB } from "@/lib/timezone";
+import { roundHours } from "@/lib/utils";
 
 export const LONG_FORMAT_COLUMNS = [
   "interviewer_username",
@@ -53,7 +54,7 @@ export async function buildLongFormatRows(filters: MasterFilters) {
   for (const v of visits) {
     const weatherFilled = v.weatherClearH !== null;
     const totalJam = weatherFilled
-      ? v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!
+      ? roundHours(v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!)
       : "";
     const base = {
       interviewer_username: v.interviewer.username,
@@ -113,7 +114,7 @@ export async function buildWideFormatRows(filters: MasterFilters) {
   for (const v of visits) {
     const weatherFilled = v.weatherClearH !== null;
     const totalJam = weatherFilled
-      ? v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!
+      ? roundHours(v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!)
       : "";
     const row: Record<string, string | number> = {
       interviewer_username: v.interviewer.username,

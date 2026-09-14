@@ -1,6 +1,7 @@
 "use client";
 
 import { Input, Label } from "@/components/ui/input";
+import { parseDecimalInput, roundHours } from "@/lib/utils";
 
 export interface WeatherState {
   weatherClearH: string;
@@ -23,7 +24,7 @@ export function WeatherHoursEditor({
   value: WeatherState;
   onChange: (v: WeatherState) => void;
 }) {
-  const total = FIELDS.reduce((sum, f) => sum + Number(value[f.key] || 0), 0);
+  const total = roundHours(FIELDS.reduce((sum, f) => sum + parseDecimalInput(value[f.key] || "0"), 0));
 
   return (
     <div className="space-y-2">
@@ -33,12 +34,16 @@ export function WeatherHoursEditor({
             <Label htmlFor={f.key}>{f.label}</Label>
             <Input
               id={f.key}
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={24}
+              type="text"
+              inputMode="decimal"
+              pattern="[0-9]*[.,]?[0-9]*"
               value={value[f.key]}
-              onChange={(e) => onChange({ ...value, [f.key]: e.target.value })}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (/^[0-9]*[.,]?[0-9]*$/.test(next)) {
+                  onChange({ ...value, [f.key]: next });
+                }
+              }}
               placeholder="0"
             />
           </div>
@@ -46,7 +51,7 @@ export function WeatherHoursEditor({
       </div>
       <p className="text-xs text-slate-500">
         Total jam tercatat: {total} jam. Isi sesuai kondisi yang benar-benar teramati — tidak
-        harus berjumlah 24 jam.
+        harus berjumlah 24 jam. Boleh pakai angka koma (mis. 1,5).
       </p>
     </div>
   );

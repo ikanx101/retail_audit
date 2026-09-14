@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { LocationPickerLazy } from "@/components/forms/location-picker-lazy";
+import { TimeInput24 } from "@/components/forms/time-input-24";
 import { useGeolocation } from "@/lib/use-geolocation";
 import { outletRegistrationSchema } from "@/lib/validations";
 import { isGpsAccuracyPoor } from "@/lib/business-rules";
@@ -50,7 +51,7 @@ export default function WarungBaruPage() {
   });
   const [submitting, setSubmitting] = React.useState(false);
 
-  const { register, handleSubmit, watch, reset, getValues } = useForm<ScalarFields>({
+  const { register, handleSubmit, watch, reset, getValues, setValue } = useForm<ScalarFields>({
     defaultValues: {
       name: "",
       ownerName: "",
@@ -231,11 +232,19 @@ export default function WarungBaruPage() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label htmlFor="openingTime">Jam buka warung *</Label>
-                <Input id="openingTime" type="time" {...register("openingTime", { required: true })} />
+                <TimeInput24
+                  id="openingTime"
+                  value={watch("openingTime")}
+                  onChange={(v) => setValue("openingTime", v, { shouldDirty: true })}
+                />
               </div>
               <div>
                 <Label htmlFor="closingTime">Jam tutup warung *</Label>
-                <Input id="closingTime" type="time" {...register("closingTime", { required: true })} />
+                <TimeInput24
+                  id="closingTime"
+                  value={watch("closingTime")}
+                  onChange={(v) => setValue("closingTime", v, { shouldDirty: true })}
+                />
               </div>
             </div>
             <div>
