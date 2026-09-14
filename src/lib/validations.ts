@@ -6,7 +6,9 @@ import { hasDuplicateBrands, normalizeBrandName } from "./business-rules";
 // per-kondisi (0–24 jam masing-masing) tetap berlaku karena satu kondisi tidak mungkin lebih
 // dari 24 jam dalam sehari. Sejak v2.6: pecahan jam (mis. 1,5 jam) diperbolehkan — angka
 // koma sudah dikonversi ke titik di sisi UI (lihat parseDecimalInput) sebelum sampai di sini.
+// Sejak v2.7: kategori cuaca menjadi 5 — Sangat Terik, Cerah, Mendung, Gerimis, Hujan Deras.
 export const weatherSchema = z.object({
+  weatherHotH: z.coerce.number().min(0).max(24),
   weatherClearH: z.coerce.number().min(0).max(24),
   weatherCloudyH: z.coerce.number().min(0).max(24),
   weatherDrizzleH: z.coerce.number().min(0).max(24),

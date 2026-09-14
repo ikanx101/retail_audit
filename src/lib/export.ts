@@ -20,10 +20,11 @@ export const LONG_FORMAT_COLUMNS = [
   "visit_number",
   "tanggal_kunjungan",
   "jam_kunjungan",
+  "jam_sangat_terik",
   "jam_cerah",
   "jam_mendung",
   "jam_gerimis",
-  "jam_hujan",
+  "jam_hujan_deras",
   "total_jam",
   "merek",
   "varian",
@@ -54,7 +55,7 @@ export async function buildLongFormatRows(filters: MasterFilters) {
   for (const v of visits) {
     const weatherFilled = v.weatherClearH !== null;
     const totalJam = weatherFilled
-      ? roundHours(v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!)
+      ? roundHours((v.weatherHotH ?? 0) + v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!)
       : "";
     const base = {
       interviewer_username: v.interviewer.username,
@@ -72,10 +73,11 @@ export async function buildLongFormatRows(filters: MasterFilters) {
       visit_number: v.visitNumber,
       tanggal_kunjungan: formatDateWIB(v.visitDate),
       jam_kunjungan: v.visitTime ?? "",
+      jam_sangat_terik: weatherFilled ? v.weatherHotH ?? 0 : "",
       jam_cerah: weatherFilled ? v.weatherClearH! : "",
       jam_mendung: weatherFilled ? v.weatherCloudyH! : "",
       jam_gerimis: weatherFilled ? v.weatherDrizzleH! : "",
-      jam_hujan: weatherFilled ? v.weatherRainH! : "",
+      jam_hujan_deras: weatherFilled ? v.weatherRainH! : "",
       total_jam: totalJam,
       catatan: v.notes ?? "",
       sumber_data: v.isOfflineCreated ? "offline" : "online",
@@ -114,7 +116,7 @@ export async function buildWideFormatRows(filters: MasterFilters) {
   for (const v of visits) {
     const weatherFilled = v.weatherClearH !== null;
     const totalJam = weatherFilled
-      ? roundHours(v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!)
+      ? roundHours((v.weatherHotH ?? 0) + v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!)
       : "";
     const row: Record<string, string | number> = {
       interviewer_username: v.interviewer.username,
@@ -131,10 +133,11 @@ export async function buildWideFormatRows(filters: MasterFilters) {
       visit_number: v.visitNumber,
       tanggal_kunjungan: formatDateWIB(v.visitDate),
       jam_kunjungan: v.visitTime ?? "",
+      jam_sangat_terik: weatherFilled ? v.weatherHotH ?? 0 : "",
       jam_cerah: weatherFilled ? v.weatherClearH! : "",
       jam_mendung: weatherFilled ? v.weatherCloudyH! : "",
       jam_gerimis: weatherFilled ? v.weatherDrizzleH! : "",
-      jam_hujan: weatherFilled ? v.weatherRainH! : "",
+      jam_hujan_deras: weatherFilled ? v.weatherRainH! : "",
       total_jam: totalJam,
       sumber_data: v.isOfflineCreated ? "offline" : "online",
     };

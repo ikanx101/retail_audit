@@ -46,11 +46,14 @@ export async function GET(req: NextRequest) {
       weatherFilled,
       weather: weatherFilled
         ? {
+            hot: v.weatherHotH ?? 0,
             clear: v.weatherClearH!,
             cloudy: v.weatherCloudyH!,
             drizzle: v.weatherDrizzleH!,
             rain: v.weatherRainH!,
-            total: roundHours(v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!),
+            total: roundHours(
+              (v.weatherHotH ?? 0) + v.weatherClearH! + v.weatherCloudyH! + v.weatherDrizzleH! + v.weatherRainH!
+            ),
           }
         : null,
       salesFilled: v.sales.length > 0,

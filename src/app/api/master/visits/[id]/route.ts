@@ -80,6 +80,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: {
           visitDate: visitDateUTC,
           visitTime: input.visitTime,
+          weatherHotH: input.weatherHotH,
           weatherClearH: input.weatherClearH,
           weatherCloudyH: input.weatherCloudyH,
           weatherDrizzleH: input.weatherDrizzleH,
@@ -99,6 +100,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         beforeJson: {
           visitDate: existing.visitDate.toISOString(),
           visitTime: existing.visitTime,
+          weatherHotH: existing.weatherHotH,
           weatherClearH: existing.weatherClearH,
           weatherCloudyH: existing.weatherCloudyH,
           weatherDrizzleH: existing.weatherDrizzleH,

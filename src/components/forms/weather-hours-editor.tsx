@@ -4,6 +4,7 @@ import { Input, Label } from "@/components/ui/input";
 import { parseDecimalInput, roundHours } from "@/lib/utils";
 
 export interface WeatherState {
+  weatherHotH: string;
   weatherClearH: string;
   weatherCloudyH: string;
   weatherDrizzleH: string;
@@ -11,10 +12,11 @@ export interface WeatherState {
 }
 
 const FIELDS: { key: keyof WeatherState; label: string }[] = [
+  { key: "weatherHotH", label: "Sangat Terik (jam)" },
   { key: "weatherClearH", label: "Cerah (jam)" },
   { key: "weatherCloudyH", label: "Mendung (jam)" },
   { key: "weatherDrizzleH", label: "Gerimis (jam)" },
-  { key: "weatherRainH", label: "Hujan (jam)" },
+  { key: "weatherRainH", label: "Hujan Deras (jam)" },
 ];
 
 export function WeatherHoursEditor({

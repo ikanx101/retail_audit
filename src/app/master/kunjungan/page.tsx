@@ -19,7 +19,7 @@ interface VisitRow {
   visitDate: string;
   visitTime: string | null;
   weatherFilled: boolean;
-  weather: { clear: number; cloudy: number; drizzle: number; rain: number; total: number } | null;
+  weather: { hot: number; clear: number; cloudy: number; drizzle: number; rain: number; total: number } | null;
   salesFilled: boolean;
   sales: { brand: string; sachetsSold: number; isNewBrand: boolean }[];
   totalSachets: number;
@@ -112,8 +112,8 @@ function MasterKunjunganContent() {
                   <td className="px-3 py-2">
                     {v.weatherFilled && v.weather ? (
                       <>
-                        C:{v.weather.clear} M:{v.weather.cloudy} G:{v.weather.drizzle} H:{v.weather.rain} (
-                        {v.weather.total})
+                        T:{v.weather.hot} C:{v.weather.clear} M:{v.weather.cloudy} G:{v.weather.drizzle} H:
+                        {v.weather.rain} ({v.weather.total})
                       </>
                     ) : (
                       <Badge variant="warning">Belum diisi</Badge>

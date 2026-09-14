@@ -36,6 +36,7 @@ interface Visit {
   visitNumber: number;
   visitDate: string;
   visitTime: string | null;
+  weatherHotH: number | null;
   weatherClearH: number | null;
   weatherCloudyH: number | null;
   weatherDrizzleH: number | null;
@@ -334,7 +335,9 @@ export default function MasterWarungDetailPage() {
           {data.visits.map((v) => {
             const totalJam =
               v.weatherClearH != null
-                ? roundHours(v.weatherClearH + (v.weatherCloudyH ?? 0) + (v.weatherDrizzleH ?? 0) + (v.weatherRainH ?? 0))
+                ? roundHours(
+                    (v.weatherHotH ?? 0) + v.weatherClearH + (v.weatherCloudyH ?? 0) + (v.weatherDrizzleH ?? 0) + (v.weatherRainH ?? 0)
+                  )
                 : null;
             const totalSachet = v.sales.reduce((s, x) => s + x.sachetsSold, 0);
             return (

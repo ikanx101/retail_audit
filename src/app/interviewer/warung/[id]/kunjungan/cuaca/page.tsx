@@ -44,6 +44,7 @@ export default function KunjunganCuacaPage() {
   const [clientUuid] = React.useState(() => crypto.randomUUID());
   const [visitDate, setVisitDate] = React.useState(todayWIB());
   const [weather, setWeather] = React.useState<WeatherState>({
+    weatherHotH: "0",
     weatherClearH: "0",
     weatherCloudyH: "0",
     weatherDrizzleH: "0",
@@ -83,6 +84,7 @@ export default function KunjunganCuacaPage() {
       clientUuid,
       confirmOverwriteVisitId: overwriteId,
       visitDate,
+      weatherHotH: parseDecimalInput(weather.weatherHotH || "0"),
       weatherClearH: parseDecimalInput(weather.weatherClearH || "0"),
       weatherCloudyH: parseDecimalInput(weather.weatherCloudyH || "0"),
       weatherDrizzleH: parseDecimalInput(weather.weatherDrizzleH || "0"),

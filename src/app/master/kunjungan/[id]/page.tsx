@@ -21,6 +21,7 @@ interface VisitDetail {
   visitNumber: number;
   visitDate: string;
   visitTime: string | null;
+  weatherHotH: number | null;
   weatherClearH: number | null;
   weatherCloudyH: number | null;
   weatherDrizzleH: number | null;
@@ -40,6 +41,7 @@ export default function MasterEditKunjunganPage() {
   const [visitTime, setVisitTime] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [weather, setWeather] = React.useState<WeatherState>({
+    weatherHotH: "0",
     weatherClearH: "0",
     weatherCloudyH: "0",
     weatherDrizzleH: "0",
@@ -81,6 +83,7 @@ export default function MasterEditKunjunganPage() {
       setVisitTime(visit.visitTime ?? "");
       setNotes(visit.notes ?? "");
       setWeather({
+        weatherHotH: String(visit.weatherHotH ?? 0),
         weatherClearH: String(visit.weatherClearH ?? 0),
         weatherCloudyH: String(visit.weatherCloudyH ?? 0),
         weatherDrizzleH: String(visit.weatherDrizzleH ?? 0),
@@ -103,6 +106,7 @@ export default function MasterEditKunjunganPage() {
       visitDate,
       visitTime,
       notes: notes || null,
+      weatherHotH: parseDecimalInput(weather.weatherHotH || "0"),
       weatherClearH: parseDecimalInput(weather.weatherClearH || "0"),
       weatherCloudyH: parseDecimalInput(weather.weatherCloudyH || "0"),
       weatherDrizzleH: parseDecimalInput(weather.weatherDrizzleH || "0"),

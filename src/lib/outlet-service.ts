@@ -139,6 +139,7 @@ export async function submitRevisitWeather(
         await tx.visit.update({
           where: { id: existing.id },
           data: {
+            weatherHotH: input.weatherHotH,
             weatherClearH: input.weatherClearH,
             weatherCloudyH: input.weatherCloudyH,
             weatherDrizzleH: input.weatherDrizzleH,
@@ -156,6 +157,7 @@ export async function submitRevisitWeather(
           interviewerId,
           visitNumber: visitCount + 1,
           visitDate: visitDateUTC,
+          weatherHotH: input.weatherHotH,
           weatherClearH: input.weatherClearH,
           weatherCloudyH: input.weatherCloudyH,
           weatherDrizzleH: input.weatherDrizzleH,
