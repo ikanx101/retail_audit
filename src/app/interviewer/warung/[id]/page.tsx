@@ -95,7 +95,11 @@ export default function WarungDetailPage() {
                 ? v.weatherClearH + (v.weatherCloudyH ?? 0) + (v.weatherDrizzleH ?? 0) + (v.weatherRainH ?? 0)
                 : null;
             const totalSachet = v.sales.reduce((s, x) => s + x.sachetsSold, 0);
-            const isFirstVisit = v.visitNumber === 1;
+            // Kunjungan #1 (registrasi) hanya tampil sebagai "registrasi tanpa data" jika
+            // memang belum ada cuaca/penjualan — jika interviewer mengisi formulir cuaca/
+            // penjualan di hari yang sama, backend menyatukannya ke kunjungan #1 ini
+            // (satu visit per outlet per tanggal), jadi datanya tetap harus ditampilkan.
+            const isEmptyFirstVisit = v.visitNumber === 1 && !v.weatherFilled && !v.salesFilled;
             return (
               <Card key={v.id}>
                 <CardContent className="p-3">
@@ -105,7 +109,7 @@ export default function WarungDetailPage() {
                     </p>
                     {v.visitTime && <Badge variant="info">{v.visitTime} WIB</Badge>}
                   </div>
-                  {isFirstVisit ? (
+                  {isEmptyFirstVisit ? (
                     <p className="mt-1 text-xs text-slate-400">Registrasi warung (tanpa data cuaca/penjualan).</p>
                   ) : (
                     <>

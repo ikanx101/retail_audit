@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +33,7 @@ export default function KunjunganPenjualanPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const geo = useGeolocation();
   const draftKey = `revisit_sales:${params.id}`;
 
@@ -157,6 +158,8 @@ export default function KunjunganPenjualanPage() {
       if (res.ok) {
         await clearDraft(draftKey);
         toast({ title: "Data penjualan tersimpan", kind: "success" });
+        await queryClient.invalidateQueries({ queryKey: ["outlet", params.id] });
+        await queryClient.invalidateQueries({ queryKey: ["outlets", "mine"] });
         router.push(`/interviewer/warung/${params.id}`);
         return;
       }
@@ -284,9 +287,11 @@ export default function KunjunganPenjualanPage() {
             <h2 className="text-sm font-semibold text-slate-700">
               Sachet terjual hari ini (hingga jam kunjungan)
             </h2>
-            <p className="text-xs text-slate-500">
-              Merek dari kunjungan sebelumnya sudah dimuat — konfirmasi nilainya (boleh 0 bila tidak ada penjualan).
-            </p>
+            {outlet && outlet.prefillBrands.length > 0 && (
+              <p className="text-xs text-slate-500">
+                Merek dari kunjungan sebelumnya sudah dimuat — konfirmasi nilainya (boleh 0 bila tidak ada penjualan).
+              </p>
+            )}
             <SalesRowsEditor rows={sales} onChange={setSales} brandOptions={brandOptions ?? []} />
           </CardContent>
         </Card>

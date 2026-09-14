@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +26,7 @@ export default function KunjunganCuacaPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const draftKey = `revisit_weather:${params.id}`;
 
   const { data: outlet, isLoading, isError } = useQuery({
@@ -100,6 +101,8 @@ export default function KunjunganCuacaPage() {
       if (res.ok) {
         await clearDraft(draftKey);
         toast({ title: "Data cuaca tersimpan", kind: "success" });
+        await queryClient.invalidateQueries({ queryKey: ["outlet", params.id] });
+        await queryClient.invalidateQueries({ queryKey: ["outlets", "mine"] });
         router.push(`/interviewer/warung/${params.id}`);
         return;
       }
