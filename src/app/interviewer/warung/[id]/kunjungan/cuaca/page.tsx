@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,20 @@ import { todayWIB } from "@/lib/timezone";
 import { saveDraft, loadDraft, clearDraft, enqueueSubmission } from "@/lib/offline-db";
 import { parseDecimalInput } from "@/lib/utils";
 
+interface OutletVisit {
+  id: string;
+  visitDate: string;
+  weatherHotH: number | null;
+  weatherClearH: number | null;
+  weatherCloudyH: number | null;
+  weatherDrizzleH: number | null;
+  weatherRainH: number | null;
+}
+
 interface OutletDetail {
   id: string;
   name: string;
+  visits: OutletVisit[];
 }
 
 // Kunjungan ke-2 dst — Formulir Cuaca (v2.5). Berdiri sendiri, terpisah dari formulir
@@ -26,12 +37,17 @@ interface OutletDetail {
 export default function KunjunganCuacaPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editVisitId = searchParams.get("visitId");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const draftKey = `revisit_weather:${params.id}`;
 
   const { data: outlet, isLoading, isError } = useQuery({
-    queryKey: ["outlet-basic", params.id],
+    // `editVisitId` disertakan di queryKey (v3.1) supaya data selalu diambil ulang dari
+    // server saat masuk mode edit — mencegah form menampilkan cache lama (mis. dari
+    // sebelum kunjungan ini terisi) akibat navigasi client-side antar halaman ini.
+    queryKey: ["outlet-basic", params.id, editVisitId ?? "new"],
     retry: false,
     queryFn: async (): Promise<OutletDetail> => {
       const res = await fetch(`/api/outlets/${params.id}`);
@@ -40,6 +56,12 @@ export default function KunjunganCuacaPage() {
       return json.data;
     },
   });
+
+  const editTarget = React.useMemo(
+    () => (editVisitId ? outlet?.visits.find((v) => v.id === editVisitId) ?? null : null),
+    [outlet, editVisitId]
+  );
+  const isEditMode = Boolean(editVisitId);
 
   const [clientUuid] = React.useState(() => crypto.randomUUID());
   const [visitDate, setVisitDate] = React.useState(todayWIB());
@@ -56,8 +78,25 @@ export default function KunjunganCuacaPage() {
   });
   const [submitting, setSubmitting] = React.useState(false);
   const draftLoaded = React.useRef(false);
+  const editLoaded = React.useRef(false);
+
+  // Mode edit (v3.1): prefill dari kunjungan yang sudah tersimpan, bukan dari draft lokal.
+  React.useEffect(() => {
+    if (isEditMode && editTarget && !editLoaded.current) {
+      editLoaded.current = true;
+      setVisitDate(editTarget.visitDate.slice(0, 10));
+      setWeather({
+        weatherHotH: String(editTarget.weatherHotH ?? 0),
+        weatherClearH: String(editTarget.weatherClearH ?? 0),
+        weatherCloudyH: String(editTarget.weatherCloudyH ?? 0),
+        weatherDrizzleH: String(editTarget.weatherDrizzleH ?? 0),
+        weatherRainH: String(editTarget.weatherRainH ?? 0),
+      });
+    }
+  }, [isEditMode, editTarget]);
 
   React.useEffect(() => {
+    if (isEditMode) return;
     if (!draftLoaded.current) {
       draftLoaded.current = true;
       loadDraft(draftKey).then((draft) => {
@@ -68,21 +107,22 @@ export default function KunjunganCuacaPage() {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isEditMode]);
 
   React.useEffect(() => {
+    if (isEditMode) return;
     const timeout = setTimeout(() => {
       saveDraft(draftKey, { visitDate, weather });
     }, 500);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visitDate, weather]);
+  }, [isEditMode, visitDate, weather]);
 
   function buildPayload(overwriteId?: string) {
     return {
       outletId: params.id,
       clientUuid,
-      confirmOverwriteVisitId: overwriteId,
+      confirmOverwriteVisitId: overwriteId ?? editTarget?.id,
       visitDate,
       weatherHotH: parseDecimalInput(weather.weatherHotH || "0"),
       weatherClearH: parseDecimalInput(weather.weatherClearH || "0"),
@@ -103,7 +143,7 @@ export default function KunjunganCuacaPage() {
       });
       if (res.ok) {
         await clearDraft(draftKey);
-        toast({ title: "Data cuaca tersimpan", kind: "success" });
+        toast({ title: isEditMode ? "Perubahan data cuaca tersimpan" : "Data cuaca tersimpan", kind: "success" });
         await queryClient.invalidateQueries({ queryKey: ["outlet", params.id] });
         await queryClient.invalidateQueries({ queryKey: ["outlets", "mine"] });
         router.push(`/interviewer/warung/${params.id}`);
@@ -147,7 +187,14 @@ export default function KunjunganCuacaPage() {
       toast({ title: "Periksa kembali isian Anda", description: parsed.error.issues[0]?.message, kind: "error" });
       return;
     }
-    actuallySubmit();
+    setConfirmState({
+      open: true,
+      message: "Apakah Anda yakin data cuaca yang dimasukkan sudah benar?",
+      onConfirm: () => {
+        setConfirmState({ open: false, message: "" });
+        actuallySubmit();
+      },
+    });
   }
 
   if (isLoading) return <p className="text-sm text-slate-400">Memuat...</p>;
@@ -162,15 +209,41 @@ export default function KunjunganCuacaPage() {
     );
   }
 
+  if (isEditMode && !editTarget) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-red-600">Kunjungan yang ingin diedit tidak ditemukan.</p>
+        <Link href={`/interviewer/warung/${params.id}`} className="text-sm text-blue-600 underline">
+          ← Kembali ke detail warung
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-10">
-      <h1 className="text-lg font-semibold text-slate-900">Formulir Cuaca — {outlet.name}</h1>
+      <h1 className="text-lg font-semibold text-slate-900">
+        {isEditMode ? "Edit Data Cuaca" : "Formulir Cuaca"} — {outlet.name}
+      </h1>
+      {isEditMode && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Anda sedang mengedit data cuaca kunjungan tanggal {visitDate}. Tanggal kunjungan tidak
+          bisa diubah dari sini.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardContent className="space-y-3 p-4">
             <Label htmlFor="visitDate">Tanggal kunjungan *</Label>
-            <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} required />
+            <Input
+              id="visitDate"
+              type="date"
+              value={visitDate}
+              onChange={(e) => setVisitDate(e.target.value)}
+              disabled={isEditMode}
+              required
+            />
           </CardContent>
         </Card>
 
@@ -182,7 +255,7 @@ export default function KunjunganCuacaPage() {
         </Card>
 
         <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-          {submitting ? "Menyimpan..." : "Simpan Data Cuaca"}
+          {submitting ? "Menyimpan..." : isEditMode ? "Simpan Perubahan" : "Simpan Data Cuaca"}
         </Button>
       </form>
 

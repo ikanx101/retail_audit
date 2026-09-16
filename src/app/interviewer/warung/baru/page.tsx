@@ -173,7 +173,14 @@ export default function WarungBaruPage() {
       return;
     }
 
-    checkAccuracy();
+    setConfirmState({
+      open: true,
+      message: "Apakah Anda yakin data warung yang dimasukkan sudah benar?",
+      onConfirm: () => {
+        setConfirmState({ open: false, message: "" });
+        checkAccuracy();
+      },
+    });
   });
 
   function checkAccuracy() {

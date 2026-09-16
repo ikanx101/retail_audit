@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, requireRole } from "@/lib/api-auth";
+import { requireSession } from "@/lib/api-auth";
 import { masterEditOutletSchema } from "@/lib/validations";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -55,9 +55,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   });
 }
 
-// PATCH /api/outlets/[id] — Master mengoreksi data warung yang diinput interviewer.
+// PATCH /api/outlets/[id] — Master mengoreksi data warung, atau interviewer mengedit
+// warung miliknya sendiri (v3.1) karena beberapa interviewer keburu submit sebelum
+// sempat memverifikasi isian formulir Warung Baru.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { session, error } = await requireRole("MASTER_RESEARCHER");
+  const { session, error } = await requireSession();
   if (error) return error;
 
   const { id } = await params;
@@ -70,6 +72,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const existing = await prisma.outlet.findUnique({ where: { id } });
   if (!existing || existing.isDeleted) {
     return NextResponse.json({ error: "Warung tidak ditemukan" }, { status: 404 });
+  }
+
+  const isMaster = session!.user.role === "MASTER_RESEARCHER";
+  if (!isMaster && existing.createdById !== session!.user.id) {
+    return NextResponse.json({ error: "Anda tidak memiliki akses ke warung ini" }, { status: 403 });
   }
 
   const input = parsed.data;
@@ -94,7 +101,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data: {
       entity: "outlet",
       entityId: id,
-      action: "master_edit_outlet",
+      action: isMaster ? "master_edit_outlet" : "interviewer_edit_outlet",
       actorId: session!.user.id,
       beforeJson: {
         name: existing.name,

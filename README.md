@@ -1,6 +1,6 @@
 # Retail Audit Sachet
 
-**Versi saat ini: 2.5** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
+**Versi saat ini: 3.1** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
 dan di respons `GET /api/health` (`version`). Lihat [Riwayat Revisi](#riwayat-revisi) untuk
 catatan lengkap setiap perubahan sejak versi 1.0 dirilis.
 
@@ -33,6 +33,32 @@ penggunaan dan panduan deployment.
 
 Semua perubahan pada aplikasi ini dicatat di sini secara kronologis (terbaru di atas). Nomor
 versi mengikuti versi yang tampil di footer webapp dan `/api/health`.
+
+### v3.1 — 16 September 2026
+
+Perbaikan alur interviewer, atas laporan bahwa beberapa interviewer keburu menekan tombol
+simpan sebelum sempat memverifikasi isian formulir:
+
+- **Interviewer kini bisa mengedit data warung & kunjungan yang sudah pernah diinput sendiri**
+  (sebelumnya koreksi hanya bisa dilakukan oleh Master Researcher):
+  - Tombol **"✏️ Edit"** di halaman detail warung (`/interviewer/warung/[id]`) membuka formulir
+    untuk mengoreksi data warung (nama, pemilik, alamat, telepon, kota/kecamatan, jam
+    buka/tutup, catatan, lokasi) — hanya untuk warung milik interviewer yang bersangkutan
+    (`PATCH /api/outlets/[id]` kini juga menerima peran INTERVIEWER, dibatasi ke warung yang
+    dia buat sendiri; Master Researcher tetap bisa mengedit semua warung seperti sebelumnya).
+  - Setiap baris **Riwayat Kunjungan** yang sudah terisi kini punya tombol **"✏️ Edit Cuaca"**
+    dan/atau **"✏️ Edit Penjualan"** yang membuka kembali Formulir Cuaca / Formulir Merek &
+    Penjualan **dengan data yang sudah tersimpan terisi otomatis** (bukan formulir kosong),
+    siap dikoreksi lalu disimpan langsung ke kunjungan yang sama. Tanggal kunjungan tidak bisa
+    diubah lewat mode edit ini (mencegah baris kunjungan baru tercipta secara tidak sengaja) —
+    ubah tanggal kunjungan tetap lewat Master Researcher bila diperlukan.
+- **Pop-up konfirmasi sebelum menyimpan.** Semua formulir interviewer (Warung Baru, Edit Info
+  Warung, Formulir Cuaca, Formulir Merek & Penjualan) kini menampilkan pop-up "Apakah Anda
+  yakin data yang dimasukkan sudah benar?" tepat setelah validasi isian lolos dan sebelum data
+  benar-benar tersimpan. Memilih **Ya** melanjutkan proses simpan (termasuk konfirmasi khusus
+  lain seperti jam kunjungan tidak wajar/akurasi GPS rendah bila relevan); memilih **Tidak**
+  menutup pop-up tanpa menyimpan apa pun sehingga interviewer bisa memeriksa ulang isian
+  formulirnya.
 
 ### v2.5 — 13 September 2026
 
@@ -372,10 +398,22 @@ Buka [http://localhost:3000](http://localhost:3000). Anda akan diarahkan ke `/lo
 5. Bila salah satu formulir (cuaca **atau** penjualan) sudah pernah diisi untuk tanggal yang sama,
    sistem akan menawarkan untuk **memperbarui** data itu alih-alih membuat data baru (satu warung =
    satu baris kunjungan per hari, meski cuaca & penjualannya diisi di waktu yang berbeda).
-6. **Status Sinkronisasi** (`/interviewer/sinkronisasi`) — pantau data yang masih menunggu
+6. **Sebelum data tersimpan, akan selalu muncul pop-up konfirmasi** "Apakah Anda yakin data yang
+   dimasukkan sudah benar?" — pilih **Ya** untuk melanjutkan penyimpanan, atau **Tidak** untuk
+   menutup pop-up dan memeriksa ulang isian formulir tanpa kehilangan data yang sudah diketik.
+7. **Mengedit data yang sudah tersimpan (v3.1)** — bila keburu menekan simpan sebelum sempat
+   memverifikasi, data yang sudah tersimpan tetap bisa dikoreksi sendiri lewat halaman detail
+   warung (`/interviewer/warung/[id]`):
+   - Tombol **"✏️ Edit"** di kartu info warung mengoreksi data warung (nama, pemilik, alamat,
+     telepon, kota/kecamatan, jam buka/tutup, catatan, lokasi).
+   - Tombol **"✏️ Edit Cuaca"** / **"✏️ Edit Penjualan"** pada setiap baris di Riwayat Kunjungan
+     membuka kembali formulir terkait dengan data yang sudah tersimpan **terisi otomatis**, siap
+     dikoreksi dan disimpan ke kunjungan yang sama (tanggal kunjungan tidak bisa diubah lewat
+     mode edit ini).
+8. **Status Sinkronisasi** (`/interviewer/sinkronisasi`) — pantau data yang masih menunggu
    dikirim (misalnya karena sinyal lemah/offline saat submit). Data tersimpan otomatis secara
    lokal dan akan tersinkron sendiri saat koneksi kembali; Anda juga bisa menekan "Kirim Ulang".
-7. Form yang sedang diisi **tersimpan otomatis sebagai draft** di perangkat Anda — aman bila
+9. Form yang sedang diisi **tersimpan otomatis sebagai draft** di perangkat Anda — aman bila
    aplikasi tertutup atau baterai habis sebelum sempat menyimpan.
 
 ---
@@ -498,7 +536,7 @@ dibedakan: **database** atau **aplikasi**. Contoh respons:
 ```json
 {
   "status": "ok",
-  "version": "2.5",
+  "version": "3.1",
   "buildCommit": "a1b2c3d",
   "time": "2026-09-10T12:50:51.239Z",
   "failing": [],

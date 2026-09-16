@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,28 @@ import { isGpsAccuracyPoor, isTotalSachetsLarge, isVisitTimeUnusual } from "@/li
 import { todayWIB, nowTimeWIB } from "@/lib/timezone";
 import { saveDraft, loadDraft, clearDraft, enqueueSubmission } from "@/lib/offline-db";
 
+interface OutletVisitSale {
+  brandId: string | null;
+  brandNameSnapshot: string;
+  sachetsSold: number;
+  variantNote: string | null;
+}
+
+interface OutletVisit {
+  id: string;
+  visitDate: string;
+  visitTime: string | null;
+  notes: string | null;
+  sales: OutletVisitSale[];
+}
+
 interface OutletDetail {
   id: string;
   name: string;
   latitude: string;
   longitude: string;
   prefillBrands: { brandId: string | null; brandName: string; variantNote: string | null }[];
+  visits: OutletVisit[];
 }
 
 // Kunjungan ke-2 dst — Formulir Merek & Penjualan (v2.5). Berdiri sendiri, terpisah dari
@@ -32,6 +48,8 @@ interface OutletDetail {
 export default function KunjunganPenjualanPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editVisitId = searchParams.get("visitId");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const geo = useGeolocation();
@@ -47,7 +65,10 @@ export default function KunjunganPenjualanPage() {
   });
 
   const { data: outlet, isLoading, isError } = useQuery({
-    queryKey: ["outlet", params.id],
+    // `editVisitId` disertakan di queryKey (v3.1) supaya data selalu diambil ulang dari
+    // server saat masuk mode edit — mencegah form menampilkan cache lama (mis. dari
+    // sebelum kunjungan ini terisi) akibat navigasi client-side antar halaman ini.
+    queryKey: ["outlet", params.id, editVisitId ?? "new"],
     retry: false,
     queryFn: async (): Promise<OutletDetail> => {
       const res = await fetch(`/api/outlets/${params.id}`);
@@ -73,7 +94,38 @@ export default function KunjunganPenjualanPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const prefillLoaded = React.useRef(false);
 
+  const editTarget = React.useMemo(
+    () => (editVisitId ? outlet?.visits.find((v) => v.id === editVisitId) ?? null : null),
+    [outlet, editVisitId]
+  );
+  const isEditMode = Boolean(editVisitId);
+
+  // Mode edit (v3.1): prefill dari kunjungan yang sudah tersimpan, bukan draft/prefill merek.
   React.useEffect(() => {
+    if (isEditMode && outlet && !prefillLoaded.current) {
+      prefillLoaded.current = true;
+      setLat(Number(outlet.latitude));
+      setLng(Number(outlet.longitude));
+      if (!editTarget) return;
+      setVisitDate(editTarget.visitDate.slice(0, 10));
+      setVisitTime(editTarget.visitTime ?? nowTimeWIB());
+      setVisitNotes(editTarget.notes ?? "");
+      setSales(
+        editTarget.sales.length > 0
+          ? editTarget.sales.map((s) => ({
+              key: crypto.randomUUID(),
+              brandId: s.brandId,
+              brandName: s.brandNameSnapshot,
+              sachetsSold: String(s.sachetsSold),
+              variantNote: s.variantNote ?? "",
+            }))
+          : [{ key: crypto.randomUUID(), brandId: null, brandName: "", sachetsSold: "", variantNote: "" }]
+      );
+    }
+  }, [isEditMode, outlet, editTarget]);
+
+  React.useEffect(() => {
+    if (isEditMode) return;
     if (outlet && !prefillLoaded.current) {
       prefillLoaded.current = true;
       setLat(Number(outlet.latitude));
@@ -103,7 +155,7 @@ export default function KunjunganPenjualanPage() {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outlet]);
+  }, [isEditMode, outlet]);
 
   React.useEffect(() => {
     if (geo.result) {
@@ -115,18 +167,19 @@ export default function KunjunganPenjualanPage() {
   }, [geo.result]);
 
   React.useEffect(() => {
+    if (isEditMode) return;
     const timeout = setTimeout(() => {
       saveDraft(draftKey, { visitDate, visitTime, visitNotes, sales });
     }, 500);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visitDate, visitTime, visitNotes, sales]);
+  }, [isEditMode, visitDate, visitTime, visitNotes, sales]);
 
   function buildPayload(overwriteId?: string) {
     return {
       outletId: params.id,
       clientUuid,
-      confirmOverwriteVisitId: overwriteId,
+      confirmOverwriteVisitId: overwriteId ?? editTarget?.id,
       visitDate,
       visitTime,
       visitNotes: visitNotes || null,
@@ -157,7 +210,7 @@ export default function KunjunganPenjualanPage() {
       });
       if (res.ok) {
         await clearDraft(draftKey);
-        toast({ title: "Data penjualan tersimpan", kind: "success" });
+        toast({ title: isEditMode ? "Perubahan data penjualan tersimpan" : "Data penjualan tersimpan", kind: "success" });
         await queryClient.invalidateQueries({ queryKey: ["outlet", params.id] });
         await queryClient.invalidateQueries({ queryKey: ["outlets", "mine"] });
         router.push(`/interviewer/warung/${params.id}`);
@@ -202,6 +255,17 @@ export default function KunjunganPenjualanPage() {
       return;
     }
 
+    setConfirmState({
+      open: true,
+      message: "Apakah Anda yakin data penjualan yang dimasukkan sudah benar?",
+      onConfirm: () => {
+        setConfirmState({ open: false, message: "" });
+        proceedTimeCheck(payload);
+      },
+    });
+  }
+
+  function proceedTimeCheck(payload: ReturnType<typeof buildPayload>) {
     if (isVisitTimeUnusual(payload.visitTime)) {
       setConfirmState({
         open: true,
@@ -258,9 +322,28 @@ export default function KunjunganPenjualanPage() {
     );
   }
 
+  if (isEditMode && !editTarget) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-red-600">Kunjungan yang ingin diedit tidak ditemukan.</p>
+        <Link href={`/interviewer/warung/${params.id}`} className="text-sm text-blue-600 underline">
+          ← Kembali ke detail warung
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-10">
-      <h1 className="text-lg font-semibold text-slate-900">Formulir Merek & Penjualan — {outlet.name}</h1>
+      <h1 className="text-lg font-semibold text-slate-900">
+        {isEditMode ? "Edit Data Penjualan" : "Formulir Merek & Penjualan"} — {outlet.name}
+      </h1>
+      {isEditMode && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Anda sedang mengedit data penjualan kunjungan tanggal {visitDate}. Tanggal kunjungan
+          tidak bisa diubah dari sini.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
@@ -269,7 +352,14 @@ export default function KunjunganPenjualanPage() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label htmlFor="visitDate">Tanggal kunjungan *</Label>
-                <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} required />
+                <Input
+                  id="visitDate"
+                  type="date"
+                  value={visitDate}
+                  onChange={(e) => setVisitDate(e.target.value)}
+                  disabled={isEditMode}
+                  required
+                />
               </div>
               <div>
                 <Label htmlFor="visitTime">Jam kunjungan *</Label>
@@ -342,7 +432,7 @@ export default function KunjunganPenjualanPage() {
         </Card>
 
         <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-          {submitting ? "Menyimpan..." : "Simpan Data Penjualan"}
+          {submitting ? "Menyimpan..." : isEditMode ? "Simpan Perubahan" : "Simpan Data Penjualan"}
         </Button>
       </form>
 
