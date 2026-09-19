@@ -124,6 +124,9 @@ model Visit {
   latitude         Decimal? @map("latitude") @db.Decimal(9, 6)
   longitude        Decimal? @map("longitude") @db.Decimal(9, 6)
   accuracyM        Decimal? @map("accuracy_m") @db.Decimal(10, 2)
+  // Sejak v4.0: bisa diisi dari formulir Cuaca ATAU formulir Merek & Penjualan (keduanya
+  // menampilkan "Catatan / komentar" opsional) — satu kolom dipakai bersama kedua formulir
+  // independen ini, lihat submitRevisitWeather/submitRevisitSales di outlet-service.ts.
   notes            String?
   isOfflineCreated Boolean  @default(false) @map("is_offline_created")
   syncedAt         DateTime? @map("synced_at")

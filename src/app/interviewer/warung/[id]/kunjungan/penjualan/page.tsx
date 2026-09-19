@@ -131,16 +131,25 @@ export default function KunjunganPenjualanPage() {
       setLat(Number(outlet.latitude));
       setLng(Number(outlet.longitude));
       loadDraft(draftKey).then((draft) => {
+        const d = (draft ?? {}) as Record<string, unknown>;
+        const dVisitDate = (d.visitDate as string) ?? todayWIB();
         if (draft) {
-          const d = draft as Record<string, unknown>;
-          setVisitDate((d.visitDate as string) ?? todayWIB());
+          setVisitDate(dVisitDate);
           setVisitTime((d.visitTime as string) ?? nowTimeWIB());
-          setVisitNotes((d.visitNotes as string) ?? "");
           if (Array.isArray(d.sales) && d.sales.length > 0) {
             setSales(d.sales as SaleRowState[]);
-            return;
           }
         }
+        // Sejak v4.0: bila belum ada draft berisi catatan, ambil dari kunjungan yang sudah
+        // ada untuk tanggal yang sama (mis. sudah diisi lewat formulir cuaca lebih dulu) —
+        // `notes` adalah satu kolom yang dipakai bersama kedua formulir independen ini.
+        if (typeof d.visitNotes === "string" && d.visitNotes.length > 0) {
+          setVisitNotes(d.visitNotes);
+        } else {
+          const sameDateVisit = outlet.visits.find((v) => v.visitDate.slice(0, 10) === dVisitDate);
+          setVisitNotes(sameDateVisit?.notes ?? "");
+        }
+        if (draft && Array.isArray(d.sales) && d.sales.length > 0) return;
         setSales(
           outlet.prefillBrands.length > 0
             ? outlet.prefillBrands.map((b) => ({
@@ -426,7 +435,7 @@ export default function KunjunganPenjualanPage() {
 
         <Card>
           <CardContent className="space-y-3 p-4">
-            <Label htmlFor="visitNotes">Catatan kunjungan (opsional)</Label>
+            <Label htmlFor="visitNotes">Catatan / komentar (opsional)</Label>
             <Textarea id="visitNotes" value={visitNotes} onChange={(e) => setVisitNotes(e.target.value)} />
           </CardContent>
         </Card>

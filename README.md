@@ -1,6 +1,6 @@
 # Retail Audit Sachet
 
-**Versi saat ini: 3.1** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
+**Versi saat ini: 4.0** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
 dan di respons `GET /api/health` (`version`). Lihat [Riwayat Revisi](#riwayat-revisi) untuk
 catatan lengkap setiap perubahan sejak versi 1.0 dirilis.
 
@@ -33,6 +33,20 @@ penggunaan dan panduan deployment.
 
 Semua perubahan pada aplikasi ini dicatat di sini secara kronologis (terbaru di atas). Nomor
 versi mengikuti versi yang tampil di footer webapp dan `/api/health`.
+
+### v4.0 — 19 September 2026
+
+- **Field baru "Catatan / komentar" (opsional) di Formulir Cuaca.** Sebelumnya field catatan
+  bebas hanya ada di Formulir Merek & Penjualan (`visitNotes`). Sekarang Formulir Cuaca
+  (`/interviewer/warung/[id]/kunjungan/cuaca`) juga punya field yang sama, dan label field yang
+  sudah ada di Formulir Merek & Penjualan diseragamkan jadi "Catatan / komentar (opsional)".
+  Keduanya menulis ke kolom `visits.notes` yang **sama** (satu kunjungan = satu catatan,
+  disimpan bersama data cuaca ATAU penjualan — mana pun yang disubmit lebih dulu untuk tanggal
+  itu, lihat penjelasan dua-formulir-independen di v2.5). Supaya catatan yang sudah diisi lewat
+  satu formulir tidak tertimpa kosong saat formulir yang satunya disubmit di hari yang sama,
+  kedua formulir kini mengambil-alih (prefill) catatan yang sudah tersimpan untuk tanggal
+  kunjungan yang sama sebelum interviewer mulai mengisi. Tidak ada perubahan skema database
+  (kolom `notes` sudah ada sejak awal).
 
 ### v3.1 — 16 September 2026
 
@@ -536,7 +550,7 @@ dibedakan: **database** atau **aplikasi**. Contoh respons:
 ```json
 {
   "status": "ok",
-  "version": "3.1",
+  "version": "4.0",
   "buildCommit": "a1b2c3d",
   "time": "2026-09-10T12:50:51.239Z",
   "failing": [],

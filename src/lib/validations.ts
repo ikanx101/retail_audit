@@ -82,6 +82,9 @@ export const revisitWeatherSchema = z
     clientUuid: z.string().uuid(),
     confirmOverwriteVisitId: z.string().uuid().optional(),
     visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+    // Sejak v4.0: catatan/komentar bebas, opsional — field yang sama dengan `notes` pada
+    // formulir penjualan (satu kunjungan = satu baris `notes`, lihat submitRevisitWeather).
+    visitNotes: z.string().trim().optional().nullable(),
   })
   .and(weatherSchema);
 

@@ -144,6 +144,7 @@ export async function submitRevisitWeather(
             weatherCloudyH: input.weatherCloudyH,
             weatherDrizzleH: input.weatherDrizzleH,
             weatherRainH: input.weatherRainH,
+            notes: input.visitNotes || null,
           },
         });
         return existing.id;
@@ -162,6 +163,7 @@ export async function submitRevisitWeather(
           weatherCloudyH: input.weatherCloudyH,
           weatherDrizzleH: input.weatherDrizzleH,
           weatherRainH: input.weatherRainH,
+          notes: input.visitNotes || null,
         },
       });
       return visit.id;

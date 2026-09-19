@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Textarea } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/dialog";
@@ -23,6 +23,7 @@ interface OutletVisit {
   weatherCloudyH: number | null;
   weatherDrizzleH: number | null;
   weatherRainH: number | null;
+  notes: string | null;
 }
 
 interface OutletDetail {
@@ -72,6 +73,7 @@ export default function KunjunganCuacaPage() {
     weatherDrizzleH: "0",
     weatherRainH: "0",
   });
+  const [notes, setNotes] = React.useState("");
   const [confirmState, setConfirmState] = React.useState<{ open: boolean; message: string; onConfirm?: () => void }>({
     open: false,
     message: "",
@@ -92,31 +94,41 @@ export default function KunjunganCuacaPage() {
         weatherDrizzleH: String(editTarget.weatherDrizzleH ?? 0),
         weatherRainH: String(editTarget.weatherRainH ?? 0),
       });
+      setNotes(editTarget.notes ?? "");
     }
   }, [isEditMode, editTarget]);
 
+  // Sejak v4.0: bila belum ada draft lokal, catatan/komentar diambil dari kunjungan yang
+  // sudah ada untuk tanggal yang sama (mis. sudah diisi lewat formulir penjualan lebih dulu)
+  // supaya tidak tertimpa kosong — `notes` adalah satu kolom yang dipakai bersama kedua
+  // formulir independen ini (lihat catatan pada model Visit).
   React.useEffect(() => {
     if (isEditMode) return;
-    if (!draftLoaded.current) {
-      draftLoaded.current = true;
-      loadDraft(draftKey).then((draft) => {
-        if (!draft) return;
-        const d = draft as Record<string, unknown>;
-        setVisitDate((d.visitDate as string) ?? todayWIB());
-        if (d.weather) setWeather(d.weather as WeatherState);
-      });
-    }
+    if (draftLoaded.current || !outlet) return;
+    draftLoaded.current = true;
+    loadDraft(draftKey).then((draft) => {
+      const d = (draft ?? {}) as Record<string, unknown>;
+      const dVisitDate = (d.visitDate as string) ?? todayWIB();
+      setVisitDate(dVisitDate);
+      if (d.weather) setWeather(d.weather as WeatherState);
+      if (typeof d.notes === "string" && d.notes.length > 0) {
+        setNotes(d.notes);
+      } else {
+        const sameDateVisit = outlet.visits.find((v) => v.visitDate.slice(0, 10) === dVisitDate);
+        setNotes(sameDateVisit?.notes ?? "");
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode]);
+  }, [isEditMode, outlet]);
 
   React.useEffect(() => {
     if (isEditMode) return;
     const timeout = setTimeout(() => {
-      saveDraft(draftKey, { visitDate, weather });
+      saveDraft(draftKey, { visitDate, weather, notes });
     }, 500);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, visitDate, weather]);
+  }, [isEditMode, visitDate, weather, notes]);
 
   function buildPayload(overwriteId?: string) {
     return {
@@ -129,6 +141,7 @@ export default function KunjunganCuacaPage() {
       weatherCloudyH: parseDecimalInput(weather.weatherCloudyH || "0"),
       weatherDrizzleH: parseDecimalInput(weather.weatherDrizzleH || "0"),
       weatherRainH: parseDecimalInput(weather.weatherRainH || "0"),
+      visitNotes: notes || null,
     };
   }
 
@@ -251,6 +264,13 @@ export default function KunjunganCuacaPage() {
           <CardContent className="space-y-3 p-4">
             <h2 className="text-sm font-semibold text-slate-700">Kondisi Cuaca (dalam jam)</h2>
             <WeatherHoursEditor value={weather} onChange={setWeather} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="space-y-3 p-4">
+            <Label htmlFor="notes">Catatan / komentar (opsional)</Label>
+            <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </CardContent>
         </Card>
 
