@@ -115,11 +115,12 @@ export default function MasterEditKunjunganPage() {
     }
   }, [visit]);
 
-  function buildPayload() {
+  function buildPayload(overwriteId?: string) {
     return {
       visitDate,
       visitTime,
       notes: notes || null,
+      confirmOverwriteVisitId: overwriteId,
       weatherHotH: parseDecimalInput(weather.weatherHotH || "0"),
       weatherClearH: parseDecimalInput(weather.weatherClearH || "0"),
       weatherCloudyH: parseDecimalInput(weather.weatherCloudyH || "0"),
@@ -137,13 +138,13 @@ export default function MasterEditKunjunganPage() {
     };
   }
 
-  async function actuallySubmit() {
+  async function actuallySubmit(overwriteId?: string) {
     setSubmitting(true);
     try {
       const res = await fetch(`/api/master/visits/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPayload()),
+        body: JSON.stringify(buildPayload(overwriteId)),
       });
       if (res.ok) {
         toast({ title: "Perubahan tersimpan", kind: "success" });
@@ -151,6 +152,22 @@ export default function MasterEditKunjunganPage() {
         await queryClient.invalidateQueries({ queryKey: ["master-anomalies"] });
         if (visit) await queryClient.invalidateQueries({ queryKey: ["outlet", visit.outlet.id] });
         router.push("/master/kunjungan");
+        return;
+      }
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        if (body?.error === "DUPLICATE_DATE_MOVE" && body?.existingVisitId) {
+          setConfirmState({
+            open: true,
+            message: body?.message ?? "Warung ini sudah punya kunjungan pada tanggal baru tersebut. Data lama akan digantikan. Lanjutkan?",
+            onConfirm: () => {
+              setConfirmState({ open: false, message: "" });
+              actuallySubmit(body.existingVisitId);
+            },
+          });
+          return;
+        }
+        toast({ title: "Gagal menyimpan", description: body?.message ?? body?.error, kind: "error" });
         return;
       }
       const body = await res.json().catch(() => ({}));
@@ -261,6 +278,10 @@ export default function MasterEditKunjunganPage() {
               <div>
                 <Label htmlFor="visitDate">Tanggal kunjungan</Label>
                 <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} required />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Bila warung ini sudah punya kunjungan lain di tanggal baru, akan ada konfirmasi
+                  sebelum data lama itu digantikan.
+                </p>
               </div>
               <div>
                 <Label htmlFor="visitTime">Jam kunjungan</Label>

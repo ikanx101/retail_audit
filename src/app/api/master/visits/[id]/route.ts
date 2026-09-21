@@ -63,23 +63,36 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const visitDateUTC = dateOnlyToUTC(input.visitDate);
 
-  // VL-06/FR-26: satu warung tidak boleh punya dua kunjungan pada tanggal yang sama.
+  // VL-06/FR-26: satu warung tidak boleh punya dua kunjungan pada tanggal yang sama. Sejak
+  // v4.3, Master boleh mengubah tanggal — bila tanggal baru sudah dipakai kunjungan lain milik
+  // warung ini, minta konfirmasi dulu (confirmOverwriteVisitId) sebelum data lama itu digantikan.
+  let clashing: (typeof existing) | null = null;
   if (visitDateUTC.getTime() !== existing.visitDate.getTime()) {
-    const clashing = await prisma.visit.findUnique({
+    clashing = await prisma.visit.findUnique({
       where: { outletId_visitDate: { outletId: existing.outletId, visitDate: visitDateUTC } },
+      include: { sales: true },
     });
-    if (clashing && clashing.id !== existing.id) {
+    if (clashing && clashing.id !== existing.id && clashing.id !== input.confirmOverwriteVisitId) {
       return NextResponse.json(
-        { error: "Warung ini sudah punya kunjungan lain pada tanggal tersebut." },
+        {
+          error: "DUPLICATE_DATE_MOVE",
+          message:
+            "Warung ini sudah punya kunjungan pada tanggal baru tersebut. Data kunjungan lama di tanggal itu akan digantikan. Lanjutkan?",
+          existingVisitId: clashing.id,
+        },
         { status: 409 }
       );
     }
+    if (clashing && clashing.id === existing.id) clashing = null;
   }
 
   const resolvedSales = await resolveSaleRows(input.sales);
 
   try {
     await prisma.$transaction(async (tx) => {
+      if (clashing) {
+        await tx.visit.delete({ where: { id: clashing.id } });
+      }
       await tx.visitSale.deleteMany({ where: { visitId: id } });
       await tx.visit.update({
         where: { id },
@@ -101,7 +114,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       data: {
         entity: "visit",
         entityId: id,
-        action: "master_edit_visit",
+        action: clashing ? "master_edit_visit_replace" : "master_edit_visit",
         actorId: session!.user.id,
         beforeJson: {
           visitDate: existing.visitDate.toISOString(),
@@ -113,6 +126,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           weatherRainH: existing.weatherRainH,
           notes: existing.notes,
           sales: existing.sales.map((s) => ({ brand: s.brandNameSnapshot, sachetsSold: s.sachetsSold })),
+          ...(clashing
+            ? {
+                replacedVisitId: clashing.id,
+                replacedVisitDate: clashing.visitDate.toISOString(),
+                replacedSales: clashing.sales.map((s) => ({ brand: s.brandNameSnapshot, sachetsSold: s.sachetsSold })),
+              }
+            : {}),
         },
         afterJson: { ...input },
       },

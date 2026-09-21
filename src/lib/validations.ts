@@ -105,6 +105,10 @@ export const revisitWeatherSchema = z
     outletId: z.string().uuid(),
     clientUuid: z.string().uuid(),
     confirmOverwriteVisitId: z.string().uuid().optional(),
+    // Sejak v4.3: id kunjungan yang sedang diedit (mode edit interviewer) — dikirim supaya
+    // backend tahu ini adalah edit (termasuk tanggal) dari kunjungan tersebut, bukan kunjungan
+    // baru. Lihat editRevisitWeather di outlet-service.ts.
+    editingVisitId: z.string().uuid().optional(),
     visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
     // Sejak v4.0: catatan/komentar bebas, opsional — field yang sama dengan `notes` pada
     // formulir penjualan (satu kunjungan = satu baris `notes`, lihat submitRevisitWeather).
@@ -123,6 +127,9 @@ export const revisitSalesSchema = z
     outletId: z.string().uuid(),
     clientUuid: z.string().uuid(),
     confirmOverwriteVisitId: z.string().uuid().optional(),
+    // Sejak v4.3: id kunjungan yang sedang diedit (mode edit interviewer) — lihat catatan di
+    // revisitWeatherSchema di atas dan editRevisitSales di outlet-service.ts.
+    editingVisitId: z.string().uuid().optional(),
     visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
     visitTime: visitTimeSchema,
     visitNotes: z.string().trim().optional().nullable(),
@@ -178,6 +185,10 @@ export const masterEditVisitSchema = z
     visitTime: visitTimeSchema,
     notes: z.string().trim().optional().nullable(),
     sales: salesArraySchema,
+    // Sejak v4.3: Master boleh mengubah tanggal kunjungan. Bila tanggal baru sudah punya
+    // kunjungan lain untuk warung ini, id kunjungan lama itu dikirim balik sebagai konfirmasi
+    // bahwa Master setuju datanya digantikan — lihat PATCH /api/master/visits/[id].
+    confirmOverwriteVisitId: z.string().uuid().optional(),
   })
   .and(weatherSchema);
 

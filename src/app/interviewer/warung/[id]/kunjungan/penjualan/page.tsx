@@ -191,7 +191,8 @@ export default function KunjunganPenjualanPage() {
     return {
       outletId: params.id,
       clientUuid,
-      confirmOverwriteVisitId: overwriteId ?? editTarget?.id,
+      editingVisitId: isEditMode ? editTarget?.id : undefined,
+      confirmOverwriteVisitId: overwriteId,
       visitDate,
       visitTime,
       visitNotes: visitNotes || null,
@@ -231,10 +232,12 @@ export default function KunjunganPenjualanPage() {
       }
       if (res.status === 409) {
         const body = await res.json().catch(() => ({}));
-        if (body?.error === "DUPLICATE_SALES" && body?.existingVisitId) {
+        if ((body?.error === "DUPLICATE_SALES" || body?.error === "DUPLICATE_DATE_MOVE") && body?.existingVisitId) {
           setConfirmState({
             open: true,
-            message: "Sudah ada data penjualan pada tanggal ini untuk warung ini. Perbarui data yang ada?",
+            message:
+              body?.message ??
+              "Sudah ada data penjualan pada tanggal ini untuk warung ini. Perbarui data yang ada?",
             onConfirm: () => {
               setConfirmState({ open: false, message: "" });
               actuallySubmit(body.existingVisitId);
@@ -353,8 +356,9 @@ export default function KunjunganPenjualanPage() {
       </h1>
       {isEditMode && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          Anda sedang mengedit data penjualan kunjungan tanggal {visitDate}. Tanggal kunjungan
-          tidak bisa diubah dari sini.
+          Anda sedang mengedit data penjualan kunjungan tanggal {visitDate}. Tanggal boleh
+          diubah — bila warung ini sudah punya data di tanggal baru, akan ada konfirmasi
+          sebelum data lama itu digantikan.
         </p>
       )}
 
@@ -370,7 +374,6 @@ export default function KunjunganPenjualanPage() {
                   type="date"
                   value={visitDate}
                   onChange={(e) => setVisitDate(e.target.value)}
-                  disabled={isEditMode}
                   required
                 />
               </div>

@@ -128,6 +128,61 @@ async function findExistingVisitForDate(outletId: string, visitDateUTC: Date) {
   });
 }
 
+/**
+ * Interviewer mengedit kunjungan yang sudah tersimpan, TERMASUK mengubah tanggalnya (v4.3).
+ * Karena satu warung hanya boleh punya satu baris kunjungan per tanggal, bila tanggal baru
+ * sudah dipakai kunjungan lain milik warung ini, seluruh data kunjungan lama pada tanggal itu
+ * (cuaca, penjualan, catatan, foto) akan DIGANTIKAN oleh data kunjungan yang sedang diedit —
+ * baris lama itu dihapus (cascade) lalu kunjungan yang diedit dipindah ke tanggal baru.
+ * Butuh konfirmasi (confirmOverwriteVisitId) sebelum penggantian ini dilakukan.
+ */
+async function editRevisitWeather(interviewerId: string, input: z.infer<typeof revisitWeatherSchema>) {
+  const editingVisitId = input.editingVisitId!;
+  const original = await prisma.visit.findUnique({ where: { id: editingVisitId } });
+  if (!original || original.isDeleted) {
+    throw new ServiceError("Kunjungan yang ingin diedit tidak ditemukan", 404);
+  }
+  await assertOwnedOutlet(original.outletId, interviewerId);
+
+  const visitDateUTC = dateOnlyToUTC(input.visitDate);
+  const sameDate = visitDateUTC.getTime() === original.visitDate.getTime();
+  const target = sameDate
+    ? null
+    : await prisma.visit.findUnique({
+        where: { outletId_visitDate: { outletId: original.outletId, visitDate: visitDateUTC } },
+      });
+
+  if (target && target.id !== input.confirmOverwriteVisitId) {
+    throw new ServiceError(
+      "Warung ini sudah punya kunjungan pada tanggal baru tersebut. Data kunjungan lama di tanggal itu akan digantikan. Lanjutkan?",
+      409,
+      "DUPLICATE_DATE_MOVE",
+      { existingVisitId: target.id }
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (target) {
+      await tx.visit.delete({ where: { id: target.id } });
+    }
+    await tx.visit.update({
+      where: { id: original.id },
+      data: {
+        visitDate: visitDateUTC,
+        weatherHotH: input.weatherHotH,
+        weatherClearH: input.weatherClearH,
+        weatherCloudyH: input.weatherCloudyH,
+        weatherDrizzleH: input.weatherDrizzleH,
+        weatherRainH: input.weatherRainH,
+        notes: input.visitNotes || null,
+      },
+    });
+    await createVisitPhotos(tx, original.id, "WEATHER", input.photos);
+  });
+
+  return { visitId: original.id, idempotent: false };
+}
+
 // Kunjungan ke-2 dst — Formulir Cuaca (berdiri sendiri, submit independen dari penjualan).
 export async function submitRevisitWeather(
   interviewerId: string,
@@ -135,6 +190,10 @@ export async function submitRevisitWeather(
 ) {
   if (!isVisitDateValid(input.visitDate, todayWIB())) {
     throw new ServiceError("Tanggal kunjungan harus antara 2026-01-01 dan hari ini (WIB).");
+  }
+
+  if (input.editingVisitId) {
+    return editRevisitWeather(interviewerId, input);
   }
 
   await assertOwnedOutlet(input.outletId, interviewerId);
@@ -206,6 +265,69 @@ export async function submitRevisitWeather(
   }
 }
 
+/**
+ * Interviewer mengedit kunjungan (formulir penjualan) yang sudah tersimpan, TERMASUK mengubah
+ * tanggalnya (v4.3). Lihat catatan lengkap di editRevisitWeather — perilakunya sama: bila
+ * tanggal baru sudah dipakai kunjungan lain milik warung ini, data kunjungan lama di tanggal
+ * itu digantikan (setelah konfirmasi) oleh data kunjungan yang sedang diedit.
+ */
+async function editRevisitSales(interviewerId: string, input: z.infer<typeof revisitSalesSchema>) {
+  const editingVisitId = input.editingVisitId!;
+  const original = await prisma.visit.findUnique({ where: { id: editingVisitId } });
+  if (!original || original.isDeleted) {
+    throw new ServiceError("Kunjungan yang ingin diedit tidak ditemukan", 404);
+  }
+  await assertOwnedOutlet(original.outletId, interviewerId);
+
+  const visitDateUTC = dateOnlyToUTC(input.visitDate);
+  const sameDate = visitDateUTC.getTime() === original.visitDate.getTime();
+  const target = sameDate
+    ? null
+    : await prisma.visit.findUnique({
+        where: { outletId_visitDate: { outletId: original.outletId, visitDate: visitDateUTC } },
+      });
+
+  if (target && target.id !== input.confirmOverwriteVisitId) {
+    throw new ServiceError(
+      "Warung ini sudah punya kunjungan pada tanggal baru tersebut. Data kunjungan lama di tanggal itu akan digantikan. Lanjutkan?",
+      409,
+      "DUPLICATE_DATE_MOVE",
+      { existingVisitId: target.id }
+    );
+  }
+
+  const resolvedSales = await resolveSaleRows(input.sales);
+
+  await prisma.$transaction(async (tx) => {
+    if (target) {
+      await tx.visit.delete({ where: { id: target.id } });
+    }
+    await tx.visitSale.deleteMany({ where: { visitId: original.id } });
+    await tx.visit.update({
+      where: { id: original.id },
+      data: {
+        visitDate: visitDateUTC,
+        visitTime: input.visitTime,
+        notes: input.visitNotes || null,
+        ...(input.updateLocation && input.latitude != null && input.longitude != null
+          ? { latitude: input.latitude, longitude: input.longitude, accuracyM: input.accuracyM ?? null }
+          : {}),
+      },
+    });
+    await tx.visitSale.createMany({ data: resolvedSales.map((s) => ({ ...s, visitId: original.id })) });
+    await createVisitPhotos(tx, original.id, "SALES", input.photos);
+
+    if (input.updateLocation && input.latitude != null && input.longitude != null) {
+      await tx.outlet.update({
+        where: { id: original.outletId },
+        data: { latitude: input.latitude, longitude: input.longitude, accuracyM: input.accuracyM ?? null },
+      });
+    }
+  });
+
+  return { visitId: original.id, idempotent: false };
+}
+
 // Kunjungan ke-2 dst — Formulir Merek & Penjualan (berdiri sendiri, submit independen dari cuaca).
 export async function submitRevisitSales(
   interviewerId: string,
@@ -213,6 +335,10 @@ export async function submitRevisitSales(
 ) {
   if (!isVisitDateValid(input.visitDate, todayWIB())) {
     throw new ServiceError("Tanggal kunjungan harus antara 2026-01-01 dan hari ini (WIB).");
+  }
+
+  if (input.editingVisitId) {
+    return editRevisitSales(interviewerId, input);
   }
 
   await assertOwnedOutlet(input.outletId, interviewerId);

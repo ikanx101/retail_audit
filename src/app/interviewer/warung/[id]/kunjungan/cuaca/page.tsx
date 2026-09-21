@@ -137,7 +137,8 @@ export default function KunjunganCuacaPage() {
     return {
       outletId: params.id,
       clientUuid,
-      confirmOverwriteVisitId: overwriteId ?? editTarget?.id,
+      editingVisitId: isEditMode ? editTarget?.id : undefined,
+      confirmOverwriteVisitId: overwriteId,
       visitDate,
       weatherHotH: parseDecimalInput(weather.weatherHotH || "0"),
       weatherClearH: parseDecimalInput(weather.weatherClearH || "0"),
@@ -168,10 +169,12 @@ export default function KunjunganCuacaPage() {
       }
       if (res.status === 409) {
         const body = await res.json().catch(() => ({}));
-        if (body?.error === "DUPLICATE_WEATHER" && body?.existingVisitId) {
+        if ((body?.error === "DUPLICATE_WEATHER" || body?.error === "DUPLICATE_DATE_MOVE") && body?.existingVisitId) {
           setConfirmState({
             open: true,
-            message: "Sudah ada data cuaca pada tanggal ini untuk warung ini. Perbarui data yang ada?",
+            message:
+              body?.message ??
+              "Sudah ada data cuaca pada tanggal ini untuk warung ini. Perbarui data yang ada?",
             onConfirm: () => {
               setConfirmState({ open: false, message: "" });
               actuallySubmit(body.existingVisitId);
@@ -244,8 +247,9 @@ export default function KunjunganCuacaPage() {
       </h1>
       {isEditMode && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          Anda sedang mengedit data cuaca kunjungan tanggal {visitDate}. Tanggal kunjungan tidak
-          bisa diubah dari sini.
+          Anda sedang mengedit data cuaca kunjungan tanggal {visitDate}. Tanggal boleh diubah —
+          bila warung ini sudah punya data di tanggal baru, akan ada konfirmasi sebelum data
+          lama itu digantikan.
         </p>
       )}
 
@@ -258,7 +262,6 @@ export default function KunjunganCuacaPage() {
               type="date"
               value={visitDate}
               onChange={(e) => setVisitDate(e.target.value)}
-              disabled={isEditMode}
               required
             />
           </CardContent>
