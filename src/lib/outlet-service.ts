@@ -129,6 +129,19 @@ async function findExistingVisitForDate(outletId: string, visitDateUTC: Date) {
 }
 
 /**
+ * Nomor kunjungan berikutnya untuk sebuah warung — dihitung dari MAX(visitNumber) yang pernah
+ * dipakai (termasuk baris yang sudah soft/hard delete), bukan sekadar COUNT baris yang masih
+ * aktif. Sejak v4.3, baris kunjungan bisa dihapus permanen saat tanggal diedit dan bentrok
+ * dengan kunjungan lain (lihat editRevisitWeather/editRevisitSales) — memakai COUNT akan
+ * membuat nomor kunjungan terpakai ulang (dua kunjungan berbeda tampil sebagai "Kunjungan #N"
+ * yang sama) begitu jumlah baris aktif berkurang.
+ */
+async function nextVisitNumber(tx: Prisma.TransactionClient, outletId: string): Promise<number> {
+  const result = await tx.visit.aggregate({ where: { outletId }, _max: { visitNumber: true } });
+  return (result._max.visitNumber ?? 0) + 1;
+}
+
+/**
  * Interviewer mengedit kunjungan yang sudah tersimpan, TERMASUK mengubah tanggalnya (v4.3).
  * Karena satu warung hanya boleh punya satu baris kunjungan per tanggal, bila tanggal baru
  * sudah dipakai kunjungan lain milik warung ini, seluruh data kunjungan lama pada tanggal itu
@@ -223,6 +236,12 @@ export async function submitRevisitWeather(
         await tx.visit.update({
           where: { id: existing.id },
           data: {
+            // `existing` dicari lewat outletId+visitDate tanpa memfilter isDeleted (kolom ini
+            // unique di database terlepas dari isDeleted, jadi baris yang sudah di-soft-delete
+            // Master tetap "menghuni" tanggal itu). Set eksplisit ke false supaya kunjungan yang
+            // ditimpa di sini selalu hidup kembali — tanpa ini, submit akan sukses secara diam-
+            // diam menulis ke baris yang tetap tersembunyi dari dashboard/export.
+            isDeleted: false,
             weatherHotH: input.weatherHotH,
             weatherClearH: input.weatherClearH,
             weatherCloudyH: input.weatherCloudyH,
@@ -235,13 +254,12 @@ export async function submitRevisitWeather(
         return existing.id;
       }
 
-      const visitCount = await tx.visit.count({ where: { outletId: input.outletId, isDeleted: false } });
       const visit = await tx.visit.create({
         data: {
           clientUuid: input.clientUuid,
           outletId: input.outletId,
           interviewerId,
-          visitNumber: visitCount + 1,
+          visitNumber: await nextVisitNumber(tx, input.outletId),
           visitDate: visitDateUTC,
           weatherHotH: input.weatherHotH,
           weatherClearH: input.weatherClearH,
@@ -371,6 +389,10 @@ export async function submitRevisitSales(
         await tx.visit.update({
           where: { id: existing.id },
           data: {
+            // Lihat catatan yang sama di submitRevisitWeather — `existing` bisa jadi baris yang
+            // sudah di-soft-delete Master (tetap menghuni outletId+visitDate karena unique
+            // constraint tidak memfilter isDeleted), jadi harus dihidupkan lagi secara eksplisit.
+            isDeleted: false,
             visitTime: input.visitTime,
             notes: input.visitNotes || null,
             ...(input.updateLocation && input.latitude != null && input.longitude != null
@@ -390,13 +412,12 @@ export async function submitRevisitSales(
         return existing.id;
       }
 
-      const visitCount = await tx.visit.count({ where: { outletId: input.outletId, isDeleted: false } });
       const visit = await tx.visit.create({
         data: {
           clientUuid: input.clientUuid,
           outletId: input.outletId,
           interviewerId,
-          visitNumber: visitCount + 1,
+          visitNumber: await nextVisitNumber(tx, input.outletId),
           visitDate: visitDateUTC,
           visitTime: input.visitTime,
           latitude: input.updateLocation ? input.latitude ?? null : null,

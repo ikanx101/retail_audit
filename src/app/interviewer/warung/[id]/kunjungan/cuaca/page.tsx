@@ -162,6 +162,12 @@ export default function KunjunganCuacaPage() {
       if (res.ok) {
         await clearDraft(draftKey);
         toast({ title: isEditMode ? "Perubahan data cuaca tersimpan" : "Data cuaca tersimpan", kind: "success" });
+        // `outlet-basic` (dipakai query di halaman ini sendiri) HARUS ikut diinvalidasi, bukan
+        // cuma `outlet` (dipakai halaman detail warung & formulir penjualan) — kalau tidak,
+        // membuka kembali "Edit Cuaca" untuk kunjungan yang sama akan menampilkan data lama
+        // dari cache (termasuk tanggal sebelum diedit), lalu submit berikutnya diam-diam
+        // menimpa balik perubahan yang baru saja tersimpan.
+        await queryClient.invalidateQueries({ queryKey: ["outlet-basic", params.id] });
         await queryClient.invalidateQueries({ queryKey: ["outlet", params.id] });
         await queryClient.invalidateQueries({ queryKey: ["outlets", "mine"] });
         router.push(`/interviewer/warung/${params.id}`);

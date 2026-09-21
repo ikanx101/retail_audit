@@ -1,6 +1,6 @@
 # Retail Audit Sachet
 
-**Versi saat ini: 4.2** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
+**Versi saat ini: 4.3** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
 dan di respons `GET /api/health` (`version`). Lihat [Riwayat Revisi](#riwayat-revisi) untuk
 catatan lengkap setiap perubahan sejak versi 1.0 dirilis.
 
@@ -33,6 +33,59 @@ penggunaan dan panduan deployment.
 
 Semua perubahan pada aplikasi ini dicatat di sini secara kronologis (terbaru di atas). Nomor
 versi mengikuti versi yang tampil di footer webapp dan `/api/health`.
+
+### v4.3 — 21 September 2026
+
+- **Interviewer & Master sekarang bisa mengedit tanggal kunjungan yang sudah tersimpan.**
+  Sebelumnya field tanggal dikunci (`disabled`) di formulir edit Cuaca/Penjualan interviewer, dan
+  di sisi Master perubahan tanggal yang bentrok selalu ditolak dengan error. Sekarang tanggal bisa
+  diubah di kedua sisi. Karena satu warung hanya boleh punya satu baris kunjungan per tanggal
+  (`@@unique([outletId, visitDate])`), bila tanggal baru yang dipilih sudah dipakai kunjungan lain
+  milik warung yang sama, muncul **popup konfirmasi** ("Warung ini sudah punya kunjungan pada
+  tanggal baru tersebut. Data kunjungan lama di tanggal itu akan digantikan. Lanjutkan?") sebelum
+  data lama itu digantikan sepenuhnya (cuaca, penjualan, catatan, dan foto pada tanggal tersebut
+  — baris lama dihapus permanen, bukan soft delete, karena kolom tanggal terikat *unique
+  constraint*). Tanpa bentrok, tanggal langsung berpindah tanpa perlu konfirmasi tambahan. Master
+  mencatat penggantian ini di `audit_trail` (`master_edit_visit_replace`, menyimpan id & isi
+  kunjungan yang digantikan). Lihat `editRevisitWeather`/`editRevisitSales` di
+  `src/lib/outlet-service.ts` dan `PATCH /api/master/visits/[id]`.
+
+**Bug ditemukan & diperbaiki saat pengujian menyeluruh (browser, memakai Vibium) atas fitur di atas:**
+
+- **Cache React Query yang tidak konsisten membuat edit tanggal bisa ter-*revert* diam-diam.**
+  Halaman edit Formulir Cuaca (`/interviewer/warung/[id]/kunjungan/cuaca`) meng-query datanya
+  sendiri dengan key `["outlet-basic", ...]`, tapi setelah submit hanya meng-invalidasi key
+  `["outlet", ...]` (dipakai halaman lain) — bukan key miliknya sendiri. Akibatnya, membuka
+  kembali "Edit Cuaca" untuk kunjungan yang sama tanpa reload penuh browser menampilkan data lama
+  dari cache (termasuk tanggal sebelum diedit), dan submit berikutnya diam-diam menimpa balik
+  perubahan tanggal yang baru saja tersimpan — ditemukan saat pengujian Vibium mereproduksi alur
+  edit dua kali berturut-turut. Diperbaiki dengan menambahkan invalidasi
+  `["outlet-basic", params.id]` di halaman tersebut.
+- **Nomor kunjungan ("Kunjungan #N") bisa tabrakan setelah data lama dihapus akibat penggantian
+  tanggal.** Nomor kunjungan baru dihitung dari `COUNT` baris yang masih aktif (`isDeleted:
+  false`) + 1 — begitu penggantian tanggal (lihat di atas) menghapus sebuah baris, angka itu
+  berkurang dan kunjungan berikutnya bisa memakai nomor yang sama dengan kunjungan lain yang masih
+  ada, membuat dua kunjungan berbeda tampil dengan label identik ("Kunjungan #3" dua kali) di
+  riwayat warung. Diperbaiki dengan menghitung nomor kunjungan berikutnya dari `MAX(visitNumber)`
+  yang pernah dipakai warung tersebut (termasuk baris yang sudah dihapus), bukan `COUNT` baris
+  aktif — lihat `nextVisitNumber()` di `src/lib/outlet-service.ts`.
+- **(Bug lama, ditemukan tidak sengaja saat menguji fitur di atas) Kunjungan yang sudah
+  di-*soft-delete* Master bisa "dihidupkan kembali" tanpa terlihat.** Kolom tanggal kunjungan
+  unik di level database terlepas dari status `is_deleted`, jadi baris yang sudah dihapus Master
+  tetap "menghuni" tanggal itu. Bila interviewer lalu mengirim data baru untuk tanggal yang sama
+  (formulir Cuaca/Penjualan, alur timpa-data biasa — bukan fitur edit-tanggal di atas), aplikasi
+  menulis ke baris lama itu tapi tidak pernah mengembalikan `is_deleted` ke `false` — submit
+  tampak berhasil ("Data tersimpan"), padahal datanya tetap tersembunyi selamanya dari dashboard,
+  daftar kunjungan, dan export. Diperbaiki dengan men-set `isDeleted: false` eksplisit setiap kali
+  menimpa baris yang ditemukan lewat kombinasi warung+tanggal, di kedua alur
+  (`submitRevisitWeather`/`submitRevisitSales`).
+
+Diverifikasi lewat browser (Vibium): edit tanggal interviewer (Cuaca & Penjualan) tanpa bentrok
+maupun dengan bentrok + konfirmasi + verifikasi data lama benar-benar tergantikan di database,
+tombol "Batal" pada popup konfirmasi tidak mengubah apa pun, edit tanggal Master dengan & tanpa
+bentrok, tanggal di luar rentang valid ditolak dengan pesan jelas (bukan *crash*), hapus kunjungan
+(Master), serta halaman Dashboard/Warung/Kualitas Data/Export tetap menampilkan data yang benar
+setelah rangkaian pengujian di atas.
 
 ### v4.2 — 21 September 2026
 
