@@ -20,6 +20,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       outlet: { select: { id: true, name: true } },
       interviewer: { select: { fullName: true, username: true } },
       sales: true,
+      // Sejak v4.2: metadata foto saja (tanpa byte `data`) — byte gambar diambil terpisah
+      // lewat GET /api/master/visits/[id]/photos/[photoId] agar payload detail tetap ringan.
+      photos: {
+        select: { id: true, form: true, fileName: true, mimeType: true, sizeBytes: true, uploadedAt: true },
+        orderBy: { uploadedAt: "asc" },
+      },
     },
   });
 

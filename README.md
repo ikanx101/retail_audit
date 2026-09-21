@@ -1,6 +1,6 @@
 # Retail Audit Sachet
 
-**Versi saat ini: 4.0** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
+**Versi saat ini: 4.2** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
 dan di respons `GET /api/health` (`version`). Lihat [Riwayat Revisi](#riwayat-revisi) untuk
 catatan lengkap setiap perubahan sejak versi 1.0 dirilis.
 
@@ -33,6 +33,26 @@ penggunaan dan panduan deployment.
 
 Semua perubahan pada aplikasi ini dicatat di sini secara kronologis (terbaru di atas). Nomor
 versi mengikuti versi yang tampil di footer webapp dan `/api/health`.
+
+### v4.2 — 21 September 2026
+
+- **Interviewer bisa melampirkan foto (PNG/JPEG) di Formulir Cuaca dan Formulir Merek &
+  Penjualan.** Maksimal 3 foto per submit, masing-masing maksimal 5MB — foto di-downscale dan
+  dikompres di browser (maks sisi terpanjang 1600px, JPEG kualitas 0.8, lihat
+  `src/lib/image-compress.ts`) sebelum dikirim, supaya hemat kuota data lapangan dan ukuran
+  penyimpanan server. Foto disimpan sebagai `bytea` langsung di Postgres (bukan path filesystem)
+  karena disk Railway bersifat *ephemeral* dan proyek ini belum punya object storage terpisah
+  (model `VisitPhoto`, migrasi `20260921032633_visit_photos_binary_storage`). Foto bersifat
+  **tambahan (append-only)**: submit ulang formulir yang sama (edit atau timpa data tanggal yang
+  sama) tidak pernah menghapus foto yang sudah tersimpan sebelumnya — hanya menambahkan foto baru
+  bila interviewer melampirkan lagi. Lampiran foto ikut lewat payload JSON yang sama dipakai
+  jalur online maupun antrean offline (Dexie), jadi tetap berfungsi tanpa koneksi.
+- **Master bisa melihat & mengunduh foto lampiran** di halaman detail/edit kunjungan
+  (`/master/kunjungan/[id]`) — thumbnail dikelompokkan per formulir asal (Cuaca / Merek &
+  Penjualan) dengan tautan "Unduh". Byte gambar diambil lewat endpoint terpisah
+  (`GET /api/master/visits/[id]/photos/[photoId]`, opsional `?download=1` untuk memaksa unduh)
+  supaya payload detail kunjungan (`GET /api/master/visits/[id]`) tetap ringan (hanya metadata:
+  nama file, tipe, ukuran, waktu unggah).
 
 ### v4.0 — 19 September 2026
 
@@ -550,7 +570,7 @@ dibedakan: **database** atau **aplikasi**. Contoh respons:
 ```json
 {
   "status": "ok",
-  "version": "4.0",
+  "version": "4.2",
   "buildCommit": "a1b2c3d",
   "time": "2026-09-10T12:50:51.239Z",
   "failing": [],

@@ -30,7 +30,20 @@ interface VisitDetail {
   outlet: { id: string; name: string };
   interviewer: { fullName: string; username: string };
   sales: { brandId: string | null; brandNameSnapshot: string; sachetsSold: number; variantNote: string | null }[];
+  photos: {
+    id: string;
+    form: "WEATHER" | "SALES";
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    uploadedAt: string;
+  }[];
 }
+
+const photoFormLabel: Record<"WEATHER" | "SALES", string> = {
+  WEATHER: "Cuaca",
+  SALES: "Merek & Penjualan",
+};
 
 export default function MasterEditKunjunganPage() {
   const params = useParams<{ id: string }>();
@@ -272,6 +285,43 @@ export default function MasterEditKunjunganPage() {
             <SalesRowsEditor rows={sales} onChange={setSales} brandOptions={brandOptions ?? []} />
           </CardContent>
         </Card>
+
+        {visit.photos.length > 0 && (
+          <Card>
+            <CardContent className="space-y-3 p-4">
+              <h2 className="text-sm font-semibold text-slate-700">
+                Foto Lampiran ({visit.photos.length})
+              </h2>
+              <div className="grid grid-cols-3 gap-2">
+                {visit.photos.map((photo) => {
+                  const viewUrl = `/api/master/visits/${visit.id}/photos/${photo.id}`;
+                  return (
+                    <div key={photo.id} className="space-y-1">
+                      <a href={viewUrl} target="_blank" rel="noopener noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={viewUrl}
+                          alt={photo.fileName}
+                          className="aspect-square w-full rounded-lg border border-slate-200 object-cover"
+                        />
+                      </a>
+                      <p className="truncate text-[10px] text-slate-500" title={photo.fileName}>
+                        {photoFormLabel[photo.form]} · {(photo.sizeBytes / 1024).toFixed(0)} KB
+                      </p>
+                      <a
+                        href={`${viewUrl}?download=1`}
+                        className="text-[10px] text-blue-600 underline"
+                        download={photo.fileName}
+                      >
+                        Unduh
+                      </a>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent className="space-y-3 p-4">

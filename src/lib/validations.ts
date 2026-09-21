@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { hasDuplicateBrands, normalizeBrandName } from "./business-rules";
+import { base64ByteLength } from "./utils";
 
 // Sejak v1.5: total jam cuaca TIDAK wajib berjumlah/dibatasi 24 jam — interviewer bebas
 // mengisi kondisi cuaca yang benar-benar teramati tanpa harus menutupi seluruh hari. Batas
@@ -14,6 +15,29 @@ export const weatherSchema = z.object({
   weatherDrizzleH: z.coerce.number().min(0).max(24),
   weatherRainH: z.coerce.number().min(0).max(24),
 });
+
+// Sejak v4.2: interviewer bisa melampirkan foto (PNG/JPEG) di Formulir Cuaca dan/atau Formulir
+// Merek & Penjualan. Foto dikirim sebagai base64 murni (tanpa prefix "data:...;base64,") supaya
+// menumpang di payload JSON yang sama dipakai jalur online maupun antrean offline (Dexie).
+// Foto bersifat TAMBAHAN (append-only) — submit ulang formulir yang sama tidak pernah menghapus
+// foto yang sudah tersimpan, lihat submitRevisitWeather/submitRevisitSales di outlet-service.ts.
+export const MAX_PHOTOS_PER_SUBMISSION = 3;
+export const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5MB per foto
+
+export const photoInputSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  mimeType: z.enum(["image/png", "image/jpeg"]),
+  dataBase64: z.string().min(1),
+});
+
+export const photosArraySchema = z
+  .array(photoInputSchema)
+  .max(MAX_PHOTOS_PER_SUBMISSION, `Maksimal ${MAX_PHOTOS_PER_SUBMISSION} foto per formulir`)
+  .refine((photos) => photos.every((p) => base64ByteLength(p.dataBase64) <= MAX_PHOTO_BYTES), {
+    message: "Ukuran salah satu foto melebihi 5MB",
+  })
+  .optional()
+  .default([]);
 
 export const saleRowSchema = z.object({
   brandId: z.string().uuid().nullable().optional(),
@@ -85,6 +109,8 @@ export const revisitWeatherSchema = z
     // Sejak v4.0: catatan/komentar bebas, opsional — field yang sama dengan `notes` pada
     // formulir penjualan (satu kunjungan = satu baris `notes`, lihat submitRevisitWeather).
     visitNotes: z.string().trim().optional().nullable(),
+    // Sejak v4.2: lampiran foto opsional (lihat photosArraySchema).
+    photos: photosArraySchema,
   })
   .and(weatherSchema);
 
@@ -101,6 +127,8 @@ export const revisitSalesSchema = z
     visitTime: visitTimeSchema,
     visitNotes: z.string().trim().optional().nullable(),
     sales: salesArraySchemaRequired,
+    // Sejak v4.2: lampiran foto opsional (lihat photosArraySchema).
+    photos: photosArraySchema,
     // Koordinat opsional (hanya jika "Perbarui Info Warung" dipakai)
     updateLocation: z.boolean().optional().default(false),
     latitude: z.coerce.number().min(-90).max(90).optional(),

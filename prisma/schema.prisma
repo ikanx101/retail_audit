@@ -21,6 +21,13 @@ enum GeolocationSource {
   MANUAL
 }
 
+// Sejak v4.2: menandai foto ini diunggah dari Formulir Cuaca atau Formulir Merek & Penjualan
+// (dua formulir independen pada kunjungan ke-2 dst, lihat model Visit).
+enum VisitPhotoForm {
+  WEATHER
+  SALES
+}
+
 model User {
   id           String   @id @default(uuid())
   username     String   @unique
@@ -134,7 +141,8 @@ model Visit {
   updatedAt        DateTime @updatedAt @map("updated_at")
   isDeleted        Boolean  @default(false) @map("is_deleted")
 
-  sales VisitSale[]
+  sales  VisitSale[]
+  photos VisitPhoto[]
 
   @@unique([outletId, visitDate])
   @@index([outletId, visitDate])
@@ -160,12 +168,22 @@ model VisitSale {
   @@map("visit_sales")
 }
 
+// Sejak v4.2: interviewer bisa melampirkan foto (PNG/JPEG) di Formulir Cuaca dan/atau Formulir
+// Merek & Penjualan. Disimpan langsung sebagai bytea di Postgres (bukan path filesystem) karena
+// disk Railway bersifat ephemeral dan proyek ini belum punya object storage terpisah — lihat
+// submitRevisitWeather/submitRevisitSales di outlet-service.ts.
 model VisitPhoto {
-  id         String   @id @default(uuid())
-  visitId    String   @map("visit_id")
-  path       String
-  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  id         String         @id @default(uuid())
+  visitId    String         @map("visit_id")
+  visit      Visit          @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  form       VisitPhotoForm
+  fileName   String         @map("file_name")
+  mimeType   String         @map("mime_type")
+  sizeBytes  Int            @map("size_bytes")
+  data       Bytes
+  uploadedAt DateTime       @default(now()) @map("uploaded_at")
 
+  @@index([visitId])
   @@map("visit_photos")
 }
 

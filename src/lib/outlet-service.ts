@@ -2,8 +2,33 @@ import { prisma } from "@/lib/prisma";
 import { resolveSaleRows } from "@/lib/visit-service";
 import { dateOnlyToUTC, todayWIB } from "@/lib/timezone";
 import { isVisitDateValid } from "@/lib/business-rules";
-import { outletRegistrationSchema, revisitWeatherSchema, revisitSalesSchema } from "@/lib/validations";
+import { outletRegistrationSchema, revisitWeatherSchema, revisitSalesSchema, photoInputSchema } from "@/lib/validations";
+import type { Prisma, VisitPhotoForm } from "@prisma/client";
 import { z } from "zod";
+
+/**
+ * Simpan lampiran foto (v4.2) sebagai baris baru — TIDAK PERNAH menghapus foto lama, lihat
+ * catatan append-only di photosArraySchema (validations.ts). Dipanggil di dalam transaksi yang
+ * sama dengan create/update kunjungan.
+ */
+async function createVisitPhotos(
+  tx: Prisma.TransactionClient,
+  visitId: string,
+  form: VisitPhotoForm,
+  photos: z.infer<typeof photoInputSchema>[]
+) {
+  if (photos.length === 0) return;
+  await tx.visitPhoto.createMany({
+    data: photos.map((p) => ({
+      visitId,
+      form,
+      fileName: p.fileName,
+      mimeType: p.mimeType,
+      sizeBytes: Buffer.byteLength(p.dataBase64, "base64"),
+      data: Buffer.from(p.dataBase64, "base64"),
+    })),
+  });
+}
 
 export class ServiceError extends Error {
   status: number;
@@ -147,6 +172,7 @@ export async function submitRevisitWeather(
             notes: input.visitNotes || null,
           },
         });
+        await createVisitPhotos(tx, existing.id, "WEATHER", input.photos);
         return existing.id;
       }
 
@@ -166,6 +192,7 @@ export async function submitRevisitWeather(
           notes: input.visitNotes || null,
         },
       });
+      await createVisitPhotos(tx, visit.id, "WEATHER", input.photos);
       return visit.id;
     });
 
@@ -226,6 +253,7 @@ export async function submitRevisitSales(
           },
         });
         await tx.visitSale.createMany({ data: resolvedSales.map((s) => ({ ...s, visitId: existing.id })) });
+        await createVisitPhotos(tx, existing.id, "SALES", input.photos);
 
         if (input.updateLocation && input.latitude != null && input.longitude != null) {
           await tx.outlet.update({
@@ -260,6 +288,7 @@ export async function submitRevisitSales(
       }
 
       await tx.visitSale.createMany({ data: resolvedSales.map((s) => ({ ...s, visitId: visit.id })) });
+      await createVisitPhotos(tx, visit.id, "SALES", input.photos);
 
       return visit.id;
     });

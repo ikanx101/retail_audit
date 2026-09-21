@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { WeatherHoursEditor, type WeatherState } from "@/components/forms/weather-hours-editor";
+import { PhotoUploadField, type PhotoState } from "@/components/forms/photo-upload-field";
 import { revisitWeatherSchema } from "@/lib/validations";
 import { todayWIB } from "@/lib/timezone";
 import { saveDraft, loadDraft, clearDraft, enqueueSubmission } from "@/lib/offline-db";
@@ -74,6 +75,7 @@ export default function KunjunganCuacaPage() {
     weatherRainH: "0",
   });
   const [notes, setNotes] = React.useState("");
+  const [photos, setPhotos] = React.useState<PhotoState[]>([]);
   const [confirmState, setConfirmState] = React.useState<{ open: boolean; message: string; onConfirm?: () => void }>({
     open: false,
     message: "",
@@ -111,6 +113,7 @@ export default function KunjunganCuacaPage() {
       const dVisitDate = (d.visitDate as string) ?? todayWIB();
       setVisitDate(dVisitDate);
       if (d.weather) setWeather(d.weather as WeatherState);
+      if (Array.isArray(d.photos)) setPhotos(d.photos as PhotoState[]);
       if (typeof d.notes === "string" && d.notes.length > 0) {
         setNotes(d.notes);
       } else {
@@ -124,11 +127,11 @@ export default function KunjunganCuacaPage() {
   React.useEffect(() => {
     if (isEditMode) return;
     const timeout = setTimeout(() => {
-      saveDraft(draftKey, { visitDate, weather, notes });
+      saveDraft(draftKey, { visitDate, weather, notes, photos });
     }, 500);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, visitDate, weather, notes]);
+  }, [isEditMode, visitDate, weather, notes, photos]);
 
   function buildPayload(overwriteId?: string) {
     return {
@@ -142,6 +145,7 @@ export default function KunjunganCuacaPage() {
       weatherDrizzleH: parseDecimalInput(weather.weatherDrizzleH || "0"),
       weatherRainH: parseDecimalInput(weather.weatherRainH || "0"),
       visitNotes: notes || null,
+      photos: photos.map(({ fileName, mimeType, dataBase64 }) => ({ fileName, mimeType, dataBase64 })),
     };
   }
 
@@ -264,6 +268,16 @@ export default function KunjunganCuacaPage() {
           <CardContent className="space-y-3 p-4">
             <h2 className="text-sm font-semibold text-slate-700">Kondisi Cuaca (dalam jam)</h2>
             <WeatherHoursEditor value={weather} onChange={setWeather} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <PhotoUploadField
+              value={photos}
+              onChange={setPhotos}
+              onError={(message) => toast({ title: "Foto tidak ditambahkan", description: message, kind: "error" })}
+            />
           </CardContent>
         </Card>
 

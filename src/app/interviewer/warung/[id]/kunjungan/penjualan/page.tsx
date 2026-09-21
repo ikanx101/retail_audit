@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { LocationPickerLazy } from "@/components/forms/location-picker-lazy";
 import { SalesRowsEditor, type SaleRowState } from "@/components/forms/sales-rows-editor";
+import { PhotoUploadField, type PhotoState } from "@/components/forms/photo-upload-field";
 import { useGeolocation } from "@/lib/use-geolocation";
 import { revisitSalesSchema } from "@/lib/validations";
 import { isGpsAccuracyPoor, isTotalSachetsLarge, isVisitTimeUnusual } from "@/lib/business-rules";
@@ -83,6 +84,7 @@ export default function KunjunganPenjualanPage() {
   const [visitTime, setVisitTime] = React.useState(nowTimeWIB());
   const [visitNotes, setVisitNotes] = React.useState("");
   const [sales, setSales] = React.useState<SaleRowState[]>([]);
+  const [photos, setPhotos] = React.useState<PhotoState[]>([]);
   const [updateLocation, setUpdateLocation] = React.useState(false);
   const [lat, setLat] = React.useState(0);
   const [lng, setLng] = React.useState(0);
@@ -139,6 +141,7 @@ export default function KunjunganPenjualanPage() {
           if (Array.isArray(d.sales) && d.sales.length > 0) {
             setSales(d.sales as SaleRowState[]);
           }
+          if (Array.isArray(d.photos)) setPhotos(d.photos as PhotoState[]);
         }
         // Sejak v4.0: bila belum ada draft berisi catatan, ambil dari kunjungan yang sudah
         // ada untuk tanggal yang sama (mis. sudah diisi lewat formulir cuaca lebih dulu) —
@@ -178,11 +181,11 @@ export default function KunjunganPenjualanPage() {
   React.useEffect(() => {
     if (isEditMode) return;
     const timeout = setTimeout(() => {
-      saveDraft(draftKey, { visitDate, visitTime, visitNotes, sales });
+      saveDraft(draftKey, { visitDate, visitTime, visitNotes, sales, photos });
     }, 500);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, visitDate, visitTime, visitNotes, sales]);
+  }, [isEditMode, visitDate, visitTime, visitNotes, sales, photos]);
 
   function buildPayload(overwriteId?: string) {
     return {
@@ -205,6 +208,7 @@ export default function KunjunganPenjualanPage() {
           variantNote: s.variantNote || null,
           isNewBrand: !s.brandId,
         })),
+      photos: photos.map(({ fileName, mimeType, dataBase64 }) => ({ fileName, mimeType, dataBase64 })),
     };
   }
 
@@ -430,6 +434,16 @@ export default function KunjunganPenjualanPage() {
                 />
               </>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <PhotoUploadField
+              value={photos}
+              onChange={setPhotos}
+              onError={(message) => toast({ title: "Foto tidak ditambahkan", description: message, kind: "error" })}
+            />
           </CardContent>
         </Card>
 
