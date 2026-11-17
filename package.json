@@ -7,8 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
-    "start": "next start",
+    "build": "prisma generate && NODE_ENV=production next build",
+    "start": "NODE_ENV=production next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
