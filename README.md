@@ -1,6 +1,6 @@
 # Retail Audit Sachet
 
-**Versi saat ini: 4.3** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
+**Versi saat ini: 4.4** — versi yang sama juga ditampilkan di footer webapp (setiap halaman)
 dan di respons `GET /api/health` (`version`). Lihat [Riwayat Revisi](#riwayat-revisi) untuk
 catatan lengkap setiap perubahan sejak versi 1.0 dirilis.
 
@@ -33,6 +33,42 @@ penggunaan dan panduan deployment.
 
 Semua perubahan pada aplikasi ini dicatat di sini secara kronologis (terbaru di atas). Nomor
 versi mengikuti versi yang tampil di footer webapp dan `/api/health`.
+
+### v4.4 — 17 November 2026
+
+Rilis perbaikan deployment — tidak ada perubahan fitur maupun skema database. Dipicu oleh deploy
+Railway yang gagal karena isi `.env.example` (nilai khusus lokal) terpasang sebagai variabel
+service di Railway.
+
+- **Perbaikan build Railway yang gagal di prerender `/404`** — build berhenti dengan
+  `Error: <Html> should not be imported outside of pages/_document` /
+  `Export encountered an error on /_error: /404`, didahului peringatan
+  `You are using a non-standard "NODE_ENV" value`. Pesan error-nya menyesatkan: tidak ada kode
+  proyek ini yang mengimpor `<Html>`. Penyebab sebenarnya adalah `NODE_ENV` di Railway bernilai
+  selain `production` (mis. `development`), yang membuat `next build` gagal mem-prerender halaman
+  error bawaan. Direproduksi di lokal: kode yang sama gagal dengan `NODE_ENV=development` dan
+  sukses dengan `NODE_ENV=production`. Skrip `build` dan `start` di `package.json` sekarang
+  memaksa `NODE_ENV=production` (`NODE_ENV=production next build` / `next start`), sehingga
+  deploy tidak lagi bergantung pada nilai variabel tersebut di Railway. `npm run dev` tidak
+  terpengaruh.
+- **Konfigurasi Prisma dipindah dari `package.json` ke `prisma.config.ts`** — menghilangkan
+  peringatan `The configuration property package.json#prisma is deprecated and will be removed in
+  Prisma 7` yang muncul di setiap build. Perintah seed (`tsx prisma/seed.ts`) kini didefinisikan
+  di `prisma.config.ts`. Karena Prisma CLI **tidak lagi memuat `.env` secara otomatis** begitu
+  file konfigurasi ini ada, `prisma.config.ts` memuatnya sendiri lewat `process.loadEnvFile()`
+  (diabaikan bila file `.env` tidak ada, seperti di Railway) — alur lokal `cp .env.example .env`
+  tetap berjalan seperti sebelumnya.
+- **Dokumentasi: `P1001: Can't reach database server at localhost:5432` saat start di Railway** —
+  bukan bug kode. Error ini muncul dari `npx prisma migrate deploy` bila `DATABASE_URL`/
+  `DIRECT_URL` di Railway masih berisi nilai contoh `localhost` dari `.env.example`. Perbaikannya
+  ada di tab *Variables* Railway (isi dengan `${{Postgres.DATABASE_URL}}`), bukan di repo.
+- **Bagian [Deployment ke Railway](#deployment-ke-railway) ditulis ulang** — tabel variabel kini
+  memuat nilai literal yang harus diisi, ditambah peringatan eksplisit agar tidak menyalin
+  `.env.example` ke Railway dan subbagian baru
+  [Masalah umum saat deploy](#masalah-umum-saat-deploy). `.env.example` juga diberi komentar
+  peringatan yang sama.
+
+---
 
 ### v4.3 — 21 September 2026
 
@@ -381,6 +417,11 @@ Sesuaikan `DATABASE_URL` dan `DIRECT_URL` bila perlu. Generate `AUTH_SECRET` yan
 openssl rand -base64 32
 ```
 
+> **`.env.example` hanya untuk lokal.** Nilainya (database `localhost`, `NODE_ENV="development"`,
+> secret & password contoh) **tidak boleh** disalin ke variabel Railway — lihat
+> [Deployment ke Railway](#deployment-ke-railway). File `.env` dibaca oleh Next.js dan, untuk
+> perintah Prisma CLI, dimuat oleh `prisma.config.ts`.
+
 ### 4. Jalankan migrasi & seed
 
 ```bash
@@ -405,8 +446,8 @@ Buka [http://localhost:3000](http://localhost:3000). Anda akan diarahkan ke `/lo
 | Skrip | Fungsi |
 |---|---|
 | `npm run dev` | Server pengembangan (hot reload) |
-| `npm run build` | `prisma generate` + build produksi Next.js |
-| `npm run start` | Jalankan build produksi |
+| `npm run build` | `prisma generate` + build produksi Next.js (selalu dengan `NODE_ENV=production`, apa pun nilai di environment) |
+| `npm run start` | Jalankan build produksi (selalu dengan `NODE_ENV=production`) |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run test` | Unit test (Vitest) |
@@ -522,42 +563,61 @@ Satu project Railway berisi:
    *Deploy from GitHub repo* → pilih repo ini.
 
 3. **Tambahkan plugin PostgreSQL** ke project yang sama: *New* → *Database* → *Add PostgreSQL*.
-   Railway otomatis menyediakan variabel `DATABASE_URL` (pooled, via PgBouncer) dan koneksi
-   langsung yang bisa dipetakan ke `DIRECT_URL` (lihat langkah 4).
+   Service database ini menyediakan variabel `DATABASE_URL` miliknya sendiri, yang akan
+   direferensikan oleh service aplikasi di langkah 4. Catat **nama service database** tersebut
+   (default: `Postgres`).
 
-4. **Atur Environment Variables** pada service aplikasi (tab *Variables*):
+4. **Atur Environment Variables** pada service aplikasi (tab *Variables*). Isi satu per satu
+   sesuai tabel di bawah.
 
-   | Variabel | Nilai |
+   > **Jangan menyalin isi `.env.example` ke Railway** (mis. lewat *Raw Editor*). Nilai di file
+   > itu khusus pengembangan lokal — database `localhost`, `NODE_ENV="development"`, secret dan
+   > password contoh — dan masing-masing menggagalkan deploy dengan cara berbeda (lihat
+   > [Masalah umum saat deploy](#masalah-umum-saat-deploy)).
+
+   | Variabel | Nilai yang diisi di Railway |
    |---|---|
-   | `DATABASE_URL` | Reference ke `Postgres.DATABASE_URL` (pooled) dari plugin Postgres |
-   | `DIRECT_URL` | Reference ke `Postgres.DATABASE_URL` juga (atau URL koneksi langsung non-pooled jika tersedia) — dipakai khusus untuk `prisma migrate deploy` |
+   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` — reference ke service database, **bukan** URL `localhost` |
+   | `DIRECT_URL` | `${{Postgres.DATABASE_URL}}` juga — dipakai `prisma migrate deploy` saat start |
    | `AUTH_SECRET` | Hasil `openssl rand -base64 32` (rahasia, jangan dipakai ulang dari lokal) |
-   | `NEXTAUTH_URL` | URL publik service, mis. `https://retail-audit-sachet.up.railway.app` |
+   | `NEXTAUTH_URL` | URL publik service **lengkap dengan `https://`**, mis. `https://retail-audit-sachet.up.railway.app` |
    | `APP_BASE_URL` | Sama seperti `NEXTAUTH_URL` |
    | `SEED_MASTER_USERNAME` | Username akun master pertama, mis. `master` |
    | `SEED_MASTER_PASSWORD` | Password awal yang kuat — segera ganti setelah login pertama |
    | `SEED_MASTER_FULLNAME` | Nama tampilan akun master |
    | `TZ` | `Asia/Jakarta` |
-   | `NODE_ENV` | `production` |
+   | `NODE_ENV` | `production` — atau tidak diisi sama sekali. **Jangan** `development` |
    | `SENTRY_DSN` | (opsional) DSN Sentry bila ingin mengaktifkan error tracking |
 
-   Railway secara default menyediakan referensi variabel plugin dengan sintaks
-   `${{Postgres.DATABASE_URL}}` — gunakan ini agar `DATABASE_URL`/`DIRECT_URL` otomatis
-   mengikuti kredensial plugin tanpa hardcode.
+   Catatan:
 
-5. **Build & start command** sudah diatur lewat [`railway.json`](./railway.json) di root repo:
-   - Build: `npm install --include=dev && npm run build` (termasuk `prisma generate`). Sengaja
-     memakai `npm install`, **bukan** `npm ci` — `npm ci` menghapus total `node_modules` sebelum
-     instal ulang, yang bentrok dengan cache build persisten Railway di `node_modules/.cache`
-     (lihat [Riwayat Revisi](#riwayat-revisi)). Flag `--include=dev` memastikan devDependencies
+   - `Postgres` pada `${{Postgres.DATABASE_URL}}` adalah **nama service database** di project
+     Anda. Bila service itu diberi nama lain, sesuaikan (mis. `${{Postgres-abcd.DATABASE_URL}}`).
+     Railway menawarkan autocomplete saat Anda mengetik `${{`. Dengan reference ini,
+     `DATABASE_URL`/`DIRECT_URL` otomatis mengikuti kredensial database tanpa hardcode.
+   - Sejak v4.4, skrip `build` dan `start` memaksa `NODE_ENV=production`, jadi nilai `NODE_ENV`
+     yang keliru tidak lagi menggagalkan build. Tetap isi `production` agar konsisten.
+   - Setiap kali variabel disimpan, Railway otomatis men-deploy ulang service.
+
+5. **Build & start command** sudah diatur lewat [`railway.json`](./railway.json) di root repo —
+   tidak perlu diisi manual di dashboard Railway:
+   - Build: `npm install --include=dev && npm run build`. `npm run build` menjalankan
+     `prisma generate && NODE_ENV=production next build`. Sengaja memakai `npm install`,
+     **bukan** `npm ci` — `npm ci` menghapus total `node_modules` sebelum instal ulang, yang
+     bentrok dengan cache build persisten Railway di `node_modules/.cache` (lihat
+     [Riwayat Revisi](#riwayat-revisi)). Flag `--include=dev` memastikan devDependencies
      (TypeScript, Tailwind, ESLint) tetap terpasang untuk keperluan build.
    - Start: `npx prisma migrate deploy && npm run start` — migrasi database dijalankan otomatis
-     sebelum aplikasi start setiap kali deploy.
+     sebelum aplikasi start setiap kali deploy. Tahap ini membutuhkan `DIRECT_URL`/`DATABASE_URL`
+     yang benar; bila migrasi gagal, aplikasi tidak akan start.
    - Healthcheck: `/api/health` — diagnostik bertahap (app/env/database/migrasi), lihat
      [Diagnostik Deployment](#diagnostik-deployment-health-check).
 
-6. **Deploy.** Railway akan build & jalankan otomatis. Pantau log build untuk memastikan
-   `prisma migrate deploy` sukses.
+6. **Deploy.** Railway akan build & jalankan otomatis. Pantau dua log secara terpisah:
+   - **Build log** — harus berakhir dengan daftar route Next.js (bukan `Build worker exited`).
+   - **Deploy log** — harus menampilkan `prisma migrate deploy` sukses, lalu Next.js siap
+     menerima request. Setelah itu buka `https://<domain-anda>/api/health` dan pastikan semua
+     `status` bernilai `ok`.
 
 7. **Jalankan seed akun master pertama** (sekali saja, setelah deploy pertama sukses). Dari tab
    *Shell* service di Railway (atau `railway run` via Railway CLI dari lokal):
@@ -582,6 +642,21 @@ Satu project Railway berisi:
 
 8. **Login** ke URL produksi dengan akun master tersebut, lalu mulai buat akun interviewer dari
    menu **Kelola Interviewer**.
+
+### Masalah umum saat deploy
+
+| Gejala di log Railway | Tahap | Penyebab | Perbaikan |
+|---|---|---|---|
+| `Error: <Html> should not be imported outside of pages/_document` + `Export encountered an error on /_error: /404`, didahului `non-standard "NODE_ENV" value` | Build | `NODE_ENV` bernilai selain `production` (biasanya `development` dari `.env.example`) | Ubah `NODE_ENV` jadi `production` atau hapus variabelnya. Sejak v4.4 skrip `build` sudah memaksa `production`, jadi pastikan Railway men-deploy commit terbaru |
+| `Error: P1001: Can't reach database server at localhost:5432` | Start (`prisma migrate deploy`) | `DATABASE_URL`/`DIRECT_URL` masih berisi URL `localhost` dari `.env.example` | Isi keduanya dengan `${{Postgres.DATABASE_URL}}` (langkah 4); pastikan plugin PostgreSQL sudah ditambahkan |
+| `EBUSY: resource busy or locked, rmdir '/app/node_modules/.cache'` | Build | Build command memakai `npm ci` | Pakai build command dari `railway.json` (`npm install --include=dev && npm run build`) |
+| `npm warn EBADENGINE Unsupported engine` (mis. `vite`, `rolldown`, `eslint-visitor-keys`) | Build | Beberapa devDependencies meminta Node ≥ 20.19, image build memakai Node 20.18 | **Hanya peringatan** — tidak menggagalkan build dan tidak memengaruhi aplikasi yang berjalan |
+| `warn The configuration property package.json#prisma is deprecated` | Build | Konfigurasi Prisma lama di `package.json` | **Hanya peringatan** — sudah dihilangkan sejak v4.4 (`prisma.config.ts`) |
+| Tidak bisa login padahal username/password benar | Runtime | Akun master sudah dibuat dengan password lama, atau seed belum dijalankan | `npm run seed`, atau `npm run reset-master-password` (langkah 7) |
+
+Cara membedakan cepat: error di **build log** berarti kode/konfigurasi build; error di **deploy
+log** sebelum aplikasi start hampir selalu soal variabel environment (terutama database). Bila
+aplikasi sudah start, gunakan [`/api/health`](#diagnostik-deployment-health-check).
 
 ### Auto-deploy (tanpa CI otomatis)
 
@@ -654,6 +729,7 @@ menandai deployment tidak sehat dan menjalankan `restartPolicy` sesuai `railway.
 ## Struktur Proyek
 
 ```
+prisma.config.ts           # konfigurasi Prisma CLI (lokasi skema/migrasi, perintah seed, muat .env)
 prisma/
   schema.prisma        # model data (bagian 6 requirement.md)
   migrations/           # migrasi SQL (termasuk generated column & check constraint manual)
